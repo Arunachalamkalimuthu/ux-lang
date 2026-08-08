@@ -43,7 +43,7 @@ export function link(programs) {
       if (components.has(use.component)) continue;
       diags.push(diag('UX204', screen.file, use.line,
         `\`${use.component}\` is not a declared component.`,
-        `add:  component ${use.component}(…)`));
+        `component ${use.component}(…)`));
     }
   }
 
@@ -66,7 +66,7 @@ export function link(programs) {
       if (components.has(use.component)) continue;
       diags.push(diag('UX204', component.file, use.line,
         `\`${use.component}\` is not a declared component.`,
-        `add:  component ${use.component}(…)`));
+        `component ${use.component}(…)`));
     }
   }
 

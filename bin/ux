@@ -5,7 +5,7 @@ import { loadProject } from '../src/project.js';
 import { link } from '../src/linker.js';
 import { renderMap } from '../src/map.js';
 import { renderDiagnostics } from '../src/report.js';
-import { hasErrors } from '../src/diagnostics.js';
+import { hasErrors, ERROR } from '../src/diagnostics.js';
 
 const USAGE = `ux — check and map .ux projects
 
@@ -19,6 +19,15 @@ const dir = dirArg ?? 'ux';
 if (!command || command === 'help' || command === '--help') {
   process.stdout.write(USAGE);
   process.exit(0);
+}
+
+// Validate the command before touching the filesystem — otherwise a typo'd
+// command against a project that fails to load (the ordinary first-run
+// state: no `ux/` directory yet) gets misreported as a missing-directory
+// error instead of naming the actual mistake.
+if (command !== 'check' && command !== 'map') {
+  process.stdout.write(`Unknown command \`${command}\`.\n  add:  ux check\n`);
+  process.exit(1);
 }
 
 let programs, diags;
@@ -37,13 +46,15 @@ if (command === 'check') {
   process.exit(hasErrors(all) ? 1 : 0);
 }
 
-if (command === 'map') {
-  const map = renderMap(linked);
-  process.stdout.write(map + '\n');
-  await mkdir(join(dir, '.build'), { recursive: true });
-  await writeFile(join(dir, '.build', 'app.map'), map + '\n');
-  process.exit(0);
-}
-
-process.stdout.write(`Unknown command \`${command}\`.\n  add:  ux check\n`);
-process.exit(1);
+// command === 'map': always exits 0 — a map of a broken project is exactly
+// what you want when hunting a dead end. But it isn't silent about errors:
+// it appends a one-line count so they aren't mistaken for a clean project.
+const map = renderMap(linked);
+const errorCount = all.filter(d => d.severity === ERROR).length;
+const output = errorCount > 0
+  ? `${map}\n${errorCount} error(s) — run \`ux check\` for details\n`
+  : `${map}\n`;
+process.stdout.write(output);
+await mkdir(join(dir, '.build'), { recursive: true });
+await writeFile(join(dir, '.build', 'app.map'), output);
+process.exit(0);

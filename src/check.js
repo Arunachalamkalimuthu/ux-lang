@@ -43,7 +43,7 @@ function checkScreen(screen, dataNames, file, diags) {
   if (!screen.intent) {
     diags.push(diag('UX100', file, screen.line,
       `Screen \`${screen.name}\` has no intent.`,
-      `add:  intent "why this screen exists"`));
+      `intent "why this screen exists"`));
   }
   if (screen.body.length === 0) {
     diags.push(diag('UX101', file, screen.line,
@@ -65,7 +65,7 @@ function checkElements(elements, dataNames, file, diags) {
     if (element.data && !dataNames.has(element.data)) {
       diags.push(diag('UX106', file, element.line,
         `\`${element.data}\` is not a declared data type.`,
-        `add:  data ${element.data}`));
+        `data ${element.data}`));
     }
 
     for (const [state, code, suggestion] of STATE_RULES) {
