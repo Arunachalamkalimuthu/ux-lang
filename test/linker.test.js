@@ -110,3 +110,105 @@ test('a small valid project produces an empty diagnostics array', () => {
   const { diags } = linkSources(INBOX, DETAIL);
   assert.deepEqual(diags, []);
 });
+
+// --- Fix round 1: flows in the navigation graph ---
+
+test('a screen whose only action targets a flow ending in `go Other` produces an edge, and neither screen is flagged UX201/UX202', () => {
+  const home = 'screen Home\n  at /\n  intent "x"\n  action "Done" -> completeTask\n';
+  const other = 'screen Other\n  intent "x"\n  action "Back" -> Home\n';
+  const flow = 'flow completeTask\n  go Other\n';
+
+  const { diags, edges } = linkSources(home, other, flow);
+
+  assert.ok(edges.some(e => e.from === 'Home' && e.to === 'Other' && e.via === 'flow completeTask'));
+  assert.ok(!diags.some(d => d.code === 'UX201' || d.code === 'UX202'));
+});
+
+test('a flow with a `go` inside a call\'s ok branch also produces its edge', () => {
+  const home = 'screen Home\n  at /\n  intent "x"\n  action "Save" -> saveFlow\n';
+  const other = 'screen Other\n  intent "x"\n  action "Back" -> Home\n';
+  const flow = [
+    'flow saveFlow',
+    '  call api.save(task)',
+    '    ok -> go Other',
+    '    fail -> error "Could not save."',
+  ].join('\n');
+
+  const { diags, edges } = linkSources(home, other, flow);
+
+  assert.ok(edges.some(e => e.from === 'Home' && e.to === 'Other' && e.via === 'flow saveFlow'));
+  assert.ok(!diags.some(d => d.code === 'UX201' || d.code === 'UX202'));
+});
+
+test('a flow with no `go` at all contributes no edges, so a screen invoking it alone is still UX202', () => {
+  const home = 'screen Home\n  at /\n  intent "x"\n  action "Noop" -> noopFlow\n';
+  const flow = 'flow noopFlow\n  toast "Done"\n';
+
+  const { diags } = linkSources(home, flow);
+
+  assert.ok(diags.some(d => d.code === 'UX202' && d.message.includes('Home')));
+});
+
+test('`flow X` containing `go Nowhere` emits UX200', () => {
+  const flow = 'flow X\n  go Nowhere\n';
+
+  const { diags } = linkSources(flow);
+
+  assert.ok(diags.some(d => d.code === 'UX200' && d.message.includes('Nowhere')));
+});
+
+test('the same screen name declared in two files emits UX205', () => {
+  const dupA = 'screen Dup\n  at /\n  intent "x"\n  action "Go" -> Dup\n';
+  const dupB = 'screen Dup\n  intent "x"\n  action "Go" -> Dup\n';
+
+  const { diags } = linkSources(dupA, dupB);
+
+  assert.ok(diags.some(d => d.code === 'UX205'));
+});
+
+test('a component containing `use Missing` emits UX204', () => {
+  const comp = 'component Card(task)\n  use Missing(task)\n';
+
+  const { diags } = linkSources(comp);
+
+  assert.ok(diags.some(d => d.code === 'UX204' && d.message.includes('Missing')));
+});
+
+test('a screen whose only edge is a self-loop is flagged UX202', () => {
+  const src = 'screen Loop\n  at /\n  intent "x"\n  action "Refresh" -> Loop\n';
+
+  const { diags } = linkSources(src);
+
+  assert.ok(diags.some(d => d.code === 'UX202' && d.message.includes('Loop')));
+});
+
+test('regression: valid project mixing screen targets and flow targets yields an empty diagnostics array', () => {
+  const home = 'screen Home\n  at /\n  intent "x"\n  action "Done" -> completeTask\n';
+  const other = 'screen Other\n  intent "x"\n  action "Back" -> Home\n';
+  const flow = 'flow completeTask\n  go Other\n';
+
+  const { diags } = linkSources(home, other, flow);
+
+  assert.deepEqual(diags, []);
+});
+
+test('regression: UX205 does not fire for a single file declaring one screen, one flow, and one component with distinct names', () => {
+  const src = [
+    'screen Home',
+    '  at /',
+    '  intent "x"',
+    '  use Card(task)',
+    '  action "Go" -> Other',
+    'screen Other',
+    '  intent "x"',
+    '  action "Back" -> Home',
+    'component Card(task)',
+    '  text "hi"',
+    'flow doThing',
+    '  go Home',
+  ].join('\n');
+
+  const { diags } = linkSources(src);
+
+  assert.ok(!diags.some(d => d.code === 'UX205'));
+});

@@ -8,9 +8,9 @@ export function link(programs) {
 
   for (const program of programs) {
     for (const decl of program.decls) {
-      if (decl.kind === 'Screen') screens.set(decl.name, decl);
-      if (decl.kind === 'Flow') flows.set(decl.name, decl);
-      if (decl.kind === 'Component') components.set(decl.name, decl);
+      if (decl.kind === 'Screen') registerDecl(screens, decl, diags);
+      if (decl.kind === 'Flow') registerDecl(flows, decl, diags);
+      if (decl.kind === 'Component') registerDecl(components, decl, diags);
     }
   }
 
@@ -25,7 +25,14 @@ export function link(programs) {
         checkArity(screen, target, screens.get(target.name), diags);
         continue;
       }
-      if (flows.has(target.name)) continue;
+      if (flows.has(target.name)) {
+        const flow = flows.get(target.name);
+        for (const exitName of flowExits(flow)) {
+          if (!screens.has(exitName)) continue;
+          edges.push({ from: screen.name, to: exitName, via: `flow ${flow.name}` });
+        }
+        continue;
+      }
 
       diags.push(diag('UX200', screen.file, screen.line,
         `\`${screen.name}\` links to \`${target.name}\`, which does not exist.`,
@@ -35,6 +42,29 @@ export function link(programs) {
     for (const use of componentUses(screen)) {
       if (components.has(use.component)) continue;
       diags.push(diag('UX204', screen.file, use.line,
+        `\`${use.component}\` is not a declared component.`,
+        `add:  component ${use.component}(…)`));
+    }
+  }
+
+  // A flow's own `go` targets are navigation targets too — check them even
+  // when no screen happens to invoke that flow.
+  for (const flow of flows.values()) {
+    for (const step of flowGoSteps(flow)) {
+      const target = step.target;
+      if (!target) continue;
+      if (screens.has(target.name)) continue;
+      diags.push(diag('UX200', flow.file, step.line,
+        `\`${flow.name}\` links to \`${target.name}\`, which does not exist.`,
+        `add \`screen ${target.name}\`, or fix the spelling`));
+    }
+  }
+
+  // Components can `use` other components too.
+  for (const component of components.values()) {
+    for (const use of componentUses(component)) {
+      if (components.has(use.component)) continue;
+      diags.push(diag('UX204', component.file, use.line,
         `\`${use.component}\` is not a declared component.`,
         `add:  component ${use.component}(…)`));
     }
@@ -59,14 +89,36 @@ export function link(programs) {
         `Nothing links to \`${screen.name}\`, so no one can reach it.`,
         `add an action on another screen:  action "…" -> ${screen.name}`));
     }
-    if (!edges.some(e => e.from === screen.name)) {
+
+    // A self-loop ("Refresh" back to the same screen) is not a way out.
+    const hasExit = edges.some(e => e.from === screen.name && e.to !== screen.name);
+    if (!hasExit) {
+      const other = [...screens.values()].find(s => s.name !== screen.name);
+      const fix = other
+        ? `add an action that leaves:  action "Back" -> ${other.name}`
+        : 'add a second screen, then add an action that leaves this one for it';
       diags.push(diag('UX202', screen.file, screen.line,
         `\`${screen.name}\` has no way out — a user who lands here is stuck.`,
-        `add an action that leaves:  action "Back" -> ${entry ?? 'Home'}`));
+        fix));
     }
   }
 
   return { diags, screens, edges, entry };
+}
+
+// Registers `decl` under its name, unless another declaration of the same
+// kind already claimed that name — in which case the first one wins and the
+// duplicate is reported. `loadProject` sorts files, so "first" is
+// deterministic across a real project.
+function registerDecl(map, decl, diags) {
+  const existing = map.get(decl.name);
+  if (existing) {
+    diags.push(diag('UX205', decl.file, decl.line,
+      `\`${decl.name}\` is already declared in \`${existing.file}\`.`,
+      `rename one of the two \`${decl.name}\` declarations so the name is unique across the project`));
+    return;
+  }
+  map.set(decl.name, decl);
 }
 
 function pickEntry(screens, edges) {
@@ -101,8 +153,8 @@ function* navigationTargets(screen) {
   }
 }
 
-function* componentUses(screen) {
-  yield* walk(screen.body);
+function* componentUses(owner) {
+  yield* walk(owner.body);
   function* walk(elements) {
     for (const element of elements) {
       if (element.kind === 'Use') yield element;
@@ -110,6 +162,28 @@ function* componentUses(screen) {
       if (element.kind === 'If') { yield* walk(element.then); yield* walk(element.otherwise); }
     }
   }
+}
+
+// Every `Go` step in a flow, including those nested inside a `call`'s `ok`
+// and `fail` branches.
+function* flowGoSteps(flow) {
+  yield* walk(flow.steps);
+  function* walk(steps) {
+    for (const step of steps) {
+      if (step.kind === 'Go') yield step;
+      if (step.kind === 'Call') { yield* walk(step.ok); yield* walk(step.fail); }
+    }
+  }
+}
+
+// The set of screen names a flow can land the user on. A flow with no `go`
+// at all has no exits — it returns the user to wherever they called it from.
+function flowExits(flow) {
+  const names = new Set();
+  for (const step of flowGoSteps(flow)) {
+    if (step.target?.name) names.add(step.target.name);
+  }
+  return [...names];
 }
 
 function checkArity(from, target, declared, diags) {
