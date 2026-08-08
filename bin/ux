@@ -26,7 +26,7 @@ if (!command || command === 'help' || command === '--help') {
 // state: no `ux/` directory yet) gets misreported as a missing-directory
 // error instead of naming the actual mistake.
 if (command !== 'check' && command !== 'map') {
-  process.stdout.write(`Unknown command \`${command}\`.\n  add:  ux check\n`);
+  process.stdout.write(`Unknown command \`${command}\`.\n  fix:  ux check\n`);
   process.exit(1);
 }
 
@@ -34,7 +34,7 @@ let programs, diags;
 try {
   ({ programs, diags } = await loadProject(dir));
 } catch (error) {
-  process.stdout.write(`Could not read \`${dir}\`: ${error.message}\n  add:  create a ${dir}/ directory with .ux files\n`);
+  process.stdout.write(`Could not read \`${dir}\`: ${error.message}\n  fix:  create a ${dir}/ directory with .ux files\n`);
   process.exit(1);
 }
 

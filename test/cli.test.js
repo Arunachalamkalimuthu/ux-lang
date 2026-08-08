@@ -83,6 +83,10 @@ test('check on a missing directory exits 1 and names it, without a raw stack tra
       assert.equal(err.code, 1);
       assert.match(err.stdout, /nope/);
       assert.doesNotMatch(err.stdout, /at file:|at Object\.|node:internal/);
+      // Finding 6: bin/ux's own hint lines must use the same `fix:` label
+      // as every diagnostic, not a leftover `add:` — this hint is an
+      // instruction ("create a .../ directory..."), not a line to add.
+      assert.match(err.stdout, /\n {2}fix: {2}create a .+ directory with \.ux files\n/);
       return true;
     },
   );
@@ -105,6 +109,23 @@ test('unknown command against a directory with no ux/ folder names the command, 
       assert.equal(err.code, 1);
       assert.match(err.stdout, /Unknown command `bogus`/);
       assert.doesNotMatch(err.stdout, /Could not read/);
+      return true;
+    },
+  );
+});
+
+// Finding 6: this is the message most users will hit first (a typo'd
+// subcommand), and bin/ux writes it by hand rather than through
+// renderDiagnostics — it must still carry the same `fix:` label, with the
+// renderer's exact spacing, so the CLI's own hints and every diagnostic
+// line up in one terminal session.
+test('unknown command message uses the `fix:` label with the renderer\'s exact spacing', async () => {
+  await assert.rejects(
+    run('node', [CLI, 'bogus']),
+    err => {
+      assert.equal(err.code, 1);
+      assert.match(err.stdout, /\n {2}fix: {2}ux check\n/);
+      assert.doesNotMatch(err.stdout, /add:/);
       return true;
     },
   );
