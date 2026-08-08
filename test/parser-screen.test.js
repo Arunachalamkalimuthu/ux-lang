@@ -58,6 +58,27 @@ test('parses tabs', () => {
   assert.deepEqual(tabs.target, { name: 'Issues', args: ['owner', 'repo'] });
 });
 
+test('tabs with one arrow per tab reports UX020 and keeps only the first target', () => {
+  const { ast, diags } = parse(
+    'screen Repo\n  intent "x"\n  tabs Code | Issues\n    -> Code\n    -> Issues\n', 'a.ux');
+  assert.ok(diags.some(d => d.code === 'UX020'));
+  const tabs = ast.decls[0].body[0];
+  assert.deepEqual(tabs.target, { name: 'Code', args: [] });
+});
+
+test('tabs with a single arrow reports no UX020', () => {
+  const { diags } = parse(
+    'screen Repo\n  intent "x"\n  tabs Code | Issues\n    -> Issues\n', 'a.ux');
+  assert.ok(!diags.some(d => d.code === 'UX020'));
+});
+
+test('the UX020 fix explains tabs takes one destination', () => {
+  const { diags } = parse(
+    'screen Repo\n  intent "x"\n  tabs Code | Issues\n    -> Code\n    -> Issues\n', 'a.ux');
+  const found = diags.find(d => d.code === 'UX020');
+  assert.match(found.fix, /single destination|one destination|one arrow/);
+});
+
 test('parses a form with a submit target', () => {
   const { ast } = parse(
     'screen New\n  intent "x"\n  form Task\n    title required\n    due\n    submit "Create" -> create(task)\n',

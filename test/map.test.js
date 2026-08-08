@@ -26,6 +26,31 @@ test('empty project with no screens returns sensible output', () => {
   assert.strictEqual(map, '');
 });
 
+// --- MEDIUM 10: two guards the existing GOOD-fixture-shaped tests above
+// can't distinguish, because in every fixture above declaration order
+// already happens to match sorted order, and the entry screen is always
+// declared first. ---
+
+test('targets print sorted, not in declaration order', () => {
+  // Declared "Zeta" before "Alpha" — if renderMap ever stopped sorting and
+  // fell back to declaration/edge order, this would print "Zeta | Alpha".
+  const src = 'screen Home\n  at /\n  intent "x"\n  action "Z" -> Zeta\n  action "A" -> Alpha\n';
+  const zeta = 'screen Zeta\n  intent "x"\n  action "Back" -> Home\n';
+  const alpha = 'screen Alpha\n  intent "x"\n  action "Back" -> Home\n';
+  const map = renderMap(link([src, zeta, alpha].map((s, i) => parse(s, `f${i}.ux`).ast)));
+  assert.match(map, /^Home\s+-> Alpha \| Zeta$/m);
+});
+
+test('the entry screen (`at /`) is hoisted first even when declared last', () => {
+  // "Home" (`at /`) is declared after "Other" here — if renderMap ever fell
+  // back to declaration order instead of hoisting the entry, "Other" would
+  // print first.
+  const other = 'screen Other\n  intent "x"\n  action "Go" -> Home\n';
+  const home = 'screen Home\n  at /\n  intent "x"\n  action "Back" -> Other\n';
+  const map = renderMap(link([other, home].map((s, i) => parse(s, `f${i}.ux`).ast)));
+  assert.equal(map.split('\n')[0].trim().startsWith('Home'), true);
+});
+
 test('deduplicates targets from multiple edges', () => {
   const src1 = 'screen Home\n  at /\n  intent "x"\n  action "A" -> Target\n  action "B" -> Target\n';
   const src2 = 'screen Target\n  intent "x"\n  action "Back" -> Home\n';

@@ -9,7 +9,12 @@ format's design spec, corrected against the current implementation in
 
 - Indentation is significant. Two spaces per level. Tabs are an error.
 - `#` begins a comment to end of line.
-- Strings are double-quoted. No interpolation in v1.
+- Strings are double-quoted. No interpolation in v1. A line with an odd
+  number of `"` characters — an unclosed string — is a lexer error (`UX004`),
+  not a silently-swallowed comment or a truncated value: before this was
+  checked, `heading "My tasks` (missing the closing quote) parsed to the text
+  `"My tasks` verbatim, and an unclosed string ahead of a `#` swallowed the
+  comment into the string's value instead of ending it there.
 - Declarations are `PascalCase` (`Task`, `Inbox`). Fields and flows are `camelCase`.
 - No semicolons, braces, or import statements.
 - One declaration per file is conventional but not enforced. (Note:
@@ -31,6 +36,8 @@ flow <name>(args)   # what happens when a user acts
 ```
 
 `app` and `site` are mutually exclusive — a project is one or the other.
+Enforced project-wide by the linker: no `app`/`site` anywhere, or more than
+one across the project's files, is `UX111`.
 
 ### 5.1 `data`
 
@@ -101,6 +108,10 @@ list Task where owner is me and not done
 
 **`action` is deliberately one concept.** Buttons, links, and nav items differ only in rendering, and rendering is not this language's concern. Collapsing them removes a choice the model would otherwise get wrong.
 
+**An `action` must have a target.** A label with no `->` and no bare verb (`action`, `action ""`, `action "Just a label"`, or `action "Save" ->` with nothing after the arrow) renders a control that does nothing when pressed — `UX109`. The two valid shapes are `action "Label" -> Target` and the bare verb `action flowName` (a target with no label is legal; a label with no target is not).
+
+**`tabs` supports exactly one destination for the whole tab bar**, not one per tab — a second `->` child is `UX020`. Writing one arrow per tab (the obvious generalization of the one-arrow form) parses, but every arrow after the first is discarded rather than followed, silently producing tabs that go nowhere. Give each tab its own screen and reach it with an `action` link instead.
+
 **`retry` is a built-in action verb.** `action retry` (usually inside a list's `error` state) needs no `flow retry` declaration — the runtime handles it. It also creates no navigation edge in the flow graph, so it does not, on its own, satisfy the "every screen needs a way out" rule (`UX202`). A screen whose only actions are `retry` inside its list states is still a dead end and will be reported as one.
 
 ### 5.4 Required states
@@ -142,7 +153,7 @@ Core grammar is shared. Each direction adds one optional section.
 
 **Authoring profile** adds generation detail: field validation, defaults, `needs` guards.
 
-**Extraction profile** adds one `bind` block per screen, which authoring never writes and code generation never reads:
+**Extraction profile** adds one `bind` block per screen, which authoring never writes and code generation never reads. **This example is the extraction profile, and v1's `ux check` does not support it** — do not copy it expecting it to pass. `ux check` is built for the authoring direction: it requires every `list`'s data type (here, `File`) to resolve to a declared `data` block (`UX106`), and an extracted project legitimately has none — extraction records the shape a live page already has, it doesn't declare one. The Chrome indexer that would produce and validate `.ux` in this profile is specified but not yet built (see the format spec §11 / §10).
 
 ```
 screen Repo
@@ -188,11 +199,13 @@ One file per screen. Names resolve globally; there are no imports.
 
 Runs on each file independently, before any cross-file linking:
 
-- Malformed indentation, unknown keywords, malformed fields — the lexer and parser diagnostics (`UX001`–`UX019`).
+- Malformed indentation, an unterminated string, unknown keywords, malformed fields — the lexer and parser diagnostics (`UX001`–`UX020`, including `UX004` for an odd number of `"` on one line and `UX020` for a `tabs` block with more than one `->` child).
 - A screen with no `intent`, or no body content (`UX100`, `UX101`).
 - A `list` missing `empty`, `loading`, or `error` (`UX102`–`UX104`).
 - The same name declared twice **within one file** (`UX107`).
 - A `form` listing the same field name more than once (`UX108`).
+- An `action` with no target — it renders but does nothing (`UX109`).
+- A `form` with no data name (`UX110`).
 
 ### The linker (whole project)
 
@@ -203,9 +216,10 @@ Reads every file and checks what no single file can know:
 - **Dead ends** — a screen with no way out; `retry` doesn't count (`UX202`)
 - **Argument-count mismatches** — `Detail(task, extra)` where `screen Detail(task)` takes one argument (`UX203`). This checks arity only — it does not check that the argument's *type* matches what the target screen expects.
 - **Unknown components** — `use Thing(...)` with no `component Thing` (`UX204`)
-- **Cross-file name collisions** — the same `screen`, `flow`, or `component` name declared in two different files (`UX205`)
+- **Cross-file name collisions** — the same `screen`, `flow`, or `component` name declared in two different files (`UX205`) — the same name declared twice **within one file** is `UX107`, above, not this
 - **Unresolvable field, list, and form types** — a `data` field whose type is neither a primitive nor another declared `data` (`UX105`); a `list` or `form` naming a `data` type that was never declared (`UX106`)
 - **Unresolvable form fields** — a `form`'s field that its resolved `data` type does not declare (`UX206`) — the fix names the real fields, and suggests a specific one when the field looks like a typo of it
+- **Missing or ambiguous project root** — no `app`/`site` declared anywhere, or more than one declared across the project (`UX111`)
 
 Half of these are UX defects rather than code defects. A dead-end screen is not a crash; it is a user stuck, and normally nothing catches it until someone gets stuck.
 
@@ -227,6 +241,7 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX001 | a tab character was used for indentation |
 | UX002 | an indent is not a multiple of two spaces |
 | UX003 | a line is indented more than one level deeper than the line above it |
+| UX004 | a line has an unterminated string (an odd number of `"` characters) |
 | UX010 | unknown top-level keyword (must be one of `app`, `site`, `data`, `screen`, `component`, `flow`) |
 | UX011 | a field name is declared twice in one `data` block |
 | UX012 | a field has no type (including a bare `required` with nothing before the type) |
@@ -237,6 +252,7 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX017 | `set` has no `=` value, or uses `==` where a single `=` was meant |
 | UX018 | a step inside a `call`'s `ok`/`fail` branch has its own nested branches |
 | UX019 | an `ok`/`fail` branch is missing `->` and a step |
+| UX020 | a `tabs` block has more than one `->` child — only one destination is supported |
 | UX100 | a screen has no `intent` |
 | UX101 | a screen has no body content |
 | UX102 | a `list` has no `empty` case |
@@ -246,6 +262,9 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX106 | a `list` or `form` names a `data` type that was never declared anywhere in the project (linker, project-wide) |
 | UX107 | the same name is declared twice within one file |
 | UX108 | a `form` lists the same field name more than once |
+| UX109 | an `action` has no target — it renders but does nothing |
+| UX110 | a `form` has no data name |
+| UX111 | the project declares no `app`/`site` root, or more than one, project-wide (linker) |
 | UX200 | a navigation target (`-> Name`, from a screen or from a flow's `go`) does not exist |
 | UX201 | a screen is unreachable — nothing links to it |
 | UX202 | a screen has no way out (a self-loop or `action retry` alone does not count) |

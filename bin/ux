@@ -7,6 +7,18 @@ import { renderMap } from '../src/map.js';
 import { renderDiagnostics } from '../src/report.js';
 import { hasErrors, ERROR } from '../src/diagnostics.js';
 
+// Ordering is a CLI presentation concern, not part of what a diagnostic
+// *is* — renderDiagnostics stays a pure formatter that prints whatever list
+// it's handed. Diagnostics arrive from several independent passes (lexer,
+// parser, check.js per file, then linker.js across several internal loops
+// that each finish before the next starts), so the unsorted list jumps
+// around by line and even by file. Sort by file, then line, then code, so
+// a human reads a project top to bottom instead of in pass order.
+function sortDiagnostics(diags) {
+  return [...diags].sort((a, b) =>
+    a.file.localeCompare(b.file) || a.line - b.line || a.code.localeCompare(b.code));
+}
+
 const USAGE = `ux — check and map .ux projects
 
   ux check [dir]   validate a project (default dir: ux)
@@ -38,8 +50,20 @@ try {
   process.exit(1);
 }
 
+// A directory that exists but holds zero `.ux` files loads without error —
+// `loadProject` just finds nothing to read — and used to report "No
+// problems found.", exiting 0 exactly when a generation step produced
+// nothing. That is the empty-green-checkmark case, not a passing project.
+// Report it in the same shape as the missing-directory error above, since
+// from the caller's side it is the same mistake: there is nothing here to
+// check yet.
+if (command === 'check' && programs.length === 0) {
+  process.stdout.write(`\`${dir}\` has no .ux files.\n  fix:  create a ${dir}/ directory with .ux files\n`);
+  process.exit(1);
+}
+
 const linked = link(programs);
-const all = [...diags, ...linked.diags];
+const all = sortDiagnostics([...diags, ...linked.diags]);
 
 if (command === 'check') {
   process.stdout.write(renderDiagnostics(all) + '\n');

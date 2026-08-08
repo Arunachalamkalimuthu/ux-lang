@@ -25,6 +25,27 @@ export function link(programs) {
     }
   }
 
+  // A project-wide fact, so it belongs here, not check.js: spec §5 says
+  // `app` and `site` are mutually exclusive, and every project needs
+  // exactly one — it's the thing that marks a project as authoring or
+  // extraction. Neither declared, or more than one declared (whether two
+  // `app`s, two `site`s, or one of each spread across files), left a
+  // rootless or ambiguous project checking clean.
+  const roots = programs
+    .filter(program => program.root)
+    .map(program => ({ file: program.file, root: program.root }));
+  if (roots.length === 0) {
+    diags.push(diag('UX111', programs[0]?.file ?? '(project)', 1,
+      'This project declares no `app` or `site` root.',
+      'add `app Name` to one file (authoring), or `site example.com` (extraction) — exactly one, project-wide'));
+  } else if (roots.length > 1) {
+    for (const { file, root } of roots) {
+      diags.push(diag('UX111', file, root.line,
+        `This project declares ${roots.length} roots (\`app\`/\`site\`), but \`app\` and \`site\` are mutually exclusive and only one is allowed project-wide.`,
+        'keep a single `app` or `site` declaration across the whole project and delete the rest'));
+    }
+  }
+
   // A field's type resolves against every `data` in the project (primitive,
   // inline enum, or another `data` — possibly declared in a different file,
   // per spec §7's own `data/user.ux` + `data/task.ux` layout), so this
@@ -42,13 +63,13 @@ export function link(programs) {
     checkListDataTypes(screen.body, dataTypes, screen.file, diags);
     checkFormDataTypes(screen.body, dataTypes, dataByName, screen.file, diags);
 
-    for (const { target, via } of navigationTargets(screen)) {
+    for (const { target, via, line } of navigationTargets(screen)) {
       if (!target) continue;
       if (BUILTIN_ACTIONS.has(target.name)) continue;
 
       if (screens.has(target.name)) {
         edges.push({ from: screen.name, to: target.name, via });
-        checkArity(screen, target, screens.get(target.name), diags);
+        checkArity(screen, target, screens.get(target.name), diags, line);
         continue;
       }
       if (flows.has(target.name)) {
@@ -60,7 +81,7 @@ export function link(programs) {
         continue;
       }
 
-      diags.push(diag('UX200', screen.file, screen.line,
+      diags.push(diag('UX200', screen.file, line ?? screen.line,
         `\`${screen.name}\` links to \`${target.name}\`, which does not exist.`,
         `add \`screen ${target.name}\` or \`flow ${target.name}\`, or fix the spelling`));
     }
@@ -142,9 +163,17 @@ export function link(programs) {
 function registerDecl(map, decl, diags) {
   const existing = map.get(decl.name);
   if (existing) {
-    diags.push(diag('UX205', decl.file, decl.line,
-      `\`${decl.name}\` is already declared in \`${existing.file}\`.`,
-      `rename one of the two \`${decl.name}\` declarations so the name is unique across the project`));
+    // Same-file duplicates are check.js's business (UX107) — it already sees
+    // everything it needs without reading another file. UX205 exists for the
+    // case a single file can't detect: the same name declared in *two
+    // different* files. Reporting it here too, pointed at the file you're
+    // already looking at, would restate UX107 under a code whose own message
+    // ("already declared in `<file>`") names the very file you're in.
+    if (existing.file !== decl.file) {
+      diags.push(diag('UX205', decl.file, decl.line,
+        `\`${decl.name}\` is already declared in \`${existing.file}\`.`,
+        `rename one of the two \`${decl.name}\` declarations so the name is unique across the project`));
+    }
     return;
   }
   map.set(decl.name, decl);
@@ -165,16 +194,16 @@ function* navigationTargets(screen) {
 
   function* walk(elements) {
     for (const element of elements) {
-      if (element.kind === 'Action') yield { target: element.target, via: element.label ?? 'action' };
-      if (element.kind === 'Tabs') yield { target: element.target, via: 'tabs' };
+      if (element.kind === 'Action') yield { target: element.target, via: element.label ?? 'action', line: element.line };
+      if (element.kind === 'Tabs') yield { target: element.target, via: 'tabs', line: element.line };
       if (element.kind === 'List') {
-        if (element.tap) yield { target: element.tap, via: 'tap' };
+        if (element.tap) yield { target: element.tap, via: 'tap', line: element.line };
         for (const state of Object.values(element.states)) {
-          if (state?.action?.target) yield { target: state.action.target, via: 'state' };
+          if (state?.action?.target) yield { target: state.action.target, via: 'state', line: state.action.line ?? element.line };
         }
       }
       if (element.kind === 'Form' && element.submit?.target) {
-        yield { target: element.submit.target, via: 'submit' };
+        yield { target: element.submit.target, via: 'submit', line: element.line };
       }
       if (element.kind === 'Group') yield* walk(element.body);
       if (element.kind === 'If') { yield* walk(element.then); yield* walk(element.otherwise); }
@@ -324,10 +353,10 @@ function flowExits(flow) {
   return [...names];
 }
 
-function checkArity(from, target, declared, diags) {
+function checkArity(from, target, declared, diags, line) {
   const expected = declaredParams(declared).length;
   if (target.args.length === expected) return;
-  diags.push(diag('UX203', from.file, from.line,
+  diags.push(diag('UX203', from.file, line ?? from.line,
     `\`${target.name}\` expects ${expected} argument(s) but \`${from.name}\` passes ${target.args.length}.`,
     `-> ${target.name}(${declaredParams(declared).join(', ')})`));
 }

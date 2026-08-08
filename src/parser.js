@@ -139,7 +139,6 @@ function parseScreen(node, file, diags) {
     kind: 'Screen',
     name: parsed?.name ?? signature,
     params: parsed?.args ?? [],
-    rawName: signature,
     line: node.line, file,
     at: null, needs: null, intent: null, body: [], bind: null,
   };
@@ -234,8 +233,13 @@ function parseElement(node, file, diags) {
     }
     case 'tabs': {
       const items = rest.split('|').map(s => s.trim()).filter(Boolean);
-      const arrowChild = node.children.find(c => c.text.startsWith('->'));
-      const target = arrowChild ? parseTarget(arrowChild.text.slice(2)) : null;
+      const arrowChildren = node.children.filter(c => c.text.startsWith('->'));
+      if (arrowChildren.length > 1) {
+        diags.push(diag('UX020', file, node.line,
+          '`tabs` supports a single destination, but this one has more than one `->` child.',
+          'give each tab its own screen and use `action "…" -> Screen` links for per-tab destinations — `tabs` takes one arrow for the whole bar, not one per tab'));
+      }
+      const target = arrowChildren[0] ? parseTarget(arrowChildren[0].text.slice(2)) : null;
       return { kind: 'Tabs', items, target, line: node.line };
     }
     case 'if':
@@ -243,7 +247,7 @@ function parseElement(node, file, diags) {
     case 'action':
       return parseAction(node.text, node.line);
     case 'form':
-      return parseForm(node, rest, file, diags);
+      return parseForm(node, rest);
     case 'list':
       return parseList(node, rest, file, diags);
     case 'use': {
@@ -273,7 +277,7 @@ function parseAction(text, line) {
   return { kind: 'Action', label, target, line };
 }
 
-function parseForm(node, rest, file, diags) {
+function parseForm(node, rest) {
   const form = { kind: 'Form', data: rest.trim(), fields: [], submit: null, line: node.line };
   for (const child of node.children) {
     if (words(child.text)[0] === 'submit') {

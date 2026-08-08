@@ -21,6 +21,46 @@ test('lex strips trailing comments but not inside strings', () => {
   assert.equal(lines[0].text, 'text "a # b"');
 });
 
+// --- UX004: an unterminated (odd-quote-count) string ---
+
+test('an unterminated `heading` string reports UX004', () => {
+  const { diags } = lex('heading "My tasks\n', 'a.ux');
+  assert.ok(diags.some(d => d.code === 'UX004' && d.line === 1));
+});
+
+test('`action "Go -> Other` (unmatched quote swallowing the arrow) reports UX004', () => {
+  const { diags } = lex('action "Go -> Other\n', 'a.ux');
+  assert.ok(diags.some(d => d.code === 'UX004'));
+});
+
+test('an unterminated string is still emitted into `lines` so parsing can recover', () => {
+  const { lines, diags } = lex('heading "My tasks\n', 'a.ux');
+  assert.ok(diags.some(d => d.code === 'UX004'));
+  assert.equal(lines.length, 1);
+});
+
+test('the UX004 fix names closing the string', () => {
+  const { diags } = lex('heading "My tasks\n', 'a.ux');
+  const found = diags.find(d => d.code === 'UX004');
+  assert.match(found.fix, /close the string/);
+});
+
+// Regression guard: balanced strings — including one with a `#` inside the
+// quotes — must NOT trip UX004. This is the case the bug report calls out
+// specifically: `stripComment` swallowing a comment only happens when the
+// string is *not* closed; a closed string containing `#` is fine and common.
+test('balanced strings, including one containing a `#`, do not report UX004', () => {
+  const src = [
+    'screen A',
+    '  intent "See what\'s due and clear it"',
+    '  text "Nothing overdue # ok"',
+    '  empty "All clear." action "New task" -> NewTask',
+    '  action "Save" -> A',
+  ].join('\n');
+  const { diags } = lex(src, 'a.ux');
+  assert.ok(!diags.some(d => d.code === 'UX004'));
+});
+
 test('lex rejects tabs with UX001', () => {
   const { diags } = lex('screen A\n\tintent "x"\n', 'a.ux');
   assert.equal(diags[0].code, 'UX001');

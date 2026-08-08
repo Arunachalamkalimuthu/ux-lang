@@ -53,7 +53,19 @@ function checkElements(elements, file, diags) {
       checkElements(element.then, file, diags);
       checkElements(element.otherwise, file, diags);
     }
-    if (element.kind === 'Form') checkFormFields(element, file, diags);
+    if (element.kind === 'Action' && !element.target) {
+      diags.push(diag('UX109', file, element.line,
+        `This \`action\` has no target — it renders but does nothing.`,
+        `action "Label" -> ScreenName   (or the bare-verb form:  action flowName)`));
+    }
+    if (element.kind === 'Form') {
+      if (!element.data) {
+        diags.push(diag('UX110', file, element.line,
+          `This \`form\` has no data name.`,
+          `form DataName`));
+      }
+      checkFormFields(element, file, diags);
+    }
     if (element.kind !== 'List') continue;
 
     for (const [state, code, suggestion] of STATE_RULES) {

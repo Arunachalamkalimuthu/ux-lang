@@ -173,3 +173,48 @@ test('map on a clean project prints only the map, with no error-count line', asy
   assert.equal(code ?? 0, 0);
   assert.doesNotMatch(stdout, /error\(s\)/);
 });
+
+// --- MEDIUM 7: an empty project directory is an error, not a silent pass ---
+
+test('check on a `ux/` directory with zero .ux files exits 1, not "No problems found"', async () => {
+  const dir = await mktempDir();
+  await mkdir(join(dir, 'ux'), { recursive: true });
+  await assert.rejects(
+    run('node', [CLI, 'check', join(dir, 'ux')]),
+    err => {
+      assert.equal(err.code, 1);
+      assert.doesNotMatch(err.stdout, /No problems found/);
+      assert.match(err.stdout, /no \.ux files/);
+      assert.match(err.stdout, /\n {2}fix: {2}create a .+ directory with \.ux files\n/);
+      return true;
+    },
+  );
+});
+
+// --- MEDIUM 8: diagnostics print sorted by file, then line, then code ---
+
+test('check output is sorted by file, then line, then code, even though the checker and linker emit diagnostics out of order', async () => {
+  // `First` (line 1) is unreachable — the linker only discovers that in its
+  // final reachability pass, which runs after (and therefore appends after)
+  // the per-screen pass that reports `Second`'s dead link at line 8. Before
+  // sorting, dead-link-at-8 prints before unreachable-at-1: out of order.
+  const dir = await project({
+    'app.ux': 'app Demo\n',
+    'screens.ux': [
+      'screen First',
+      '  intent "x"',
+      '  action "Back" -> Second',
+      '',
+      'screen Second',
+      '  at /',
+      '  intent "y"',
+      '  action "Broken" -> NoSuchScreen',
+    ].join('\n'),
+  });
+  const { stdout } = await run('node', [CLI, 'check', join(dir, 'ux')]).catch(e => e);
+  const locations = [...stdout.matchAll(/^\S+:(\d+)\s+(UX\d+)/gm)]
+    .map(m => [Number(m[1]), m[2]]);
+  assert.ok(locations.length >= 3, `expected several diagnostics, got:\n${stdout}`);
+  const sorted = [...locations].sort((a, b) => a[0] - b[0] || a[1].localeCompare(b[1]));
+  assert.deepEqual(locations, sorted);
+});

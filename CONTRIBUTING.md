@@ -30,8 +30,11 @@ A grammar change only earns its keep if it holds up on **both** numbers.
   runner.
 - **The grammar section of `SKILL.md` stays under 800 tokens.** Adding a
   construct means removing one.
-- **Every diagnostic carries a `fix`** that can be pasted straight into a
-  file.
+- **Every diagnostic carries a `fix:` string naming the correction.** Many
+  are a line you can paste straight into a file; some are instructions
+  (rename this, delete that) rather than pasteable lines — that's exactly
+  why the label is the neutral `fix:`, not `add:`. Don't assume every fix
+  string is pasteable when writing or reviewing one.
 - **No synonyms.** One way to say each thing.
 
 ## Working on it

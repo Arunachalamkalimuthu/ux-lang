@@ -19,7 +19,7 @@ const DETAIL = [
 ].join('\n');
 
 test('resolves a link across files', () => {
-  const { diags, edges } = linkSources(INBOX, DETAIL);
+  const { diags, edges } = linkSources(INBOX, DETAIL, 'app Demo\n');
   assert.deepEqual(diags, []);
   assert.ok(edges.some(e => e.from === 'Inbox' && e.to === 'Detail'));
 });
@@ -107,7 +107,7 @@ test('a two-screen cycle with no `at /` still resolves an entry and terminates',
 });
 
 test('a small valid project produces an empty diagnostics array', () => {
-  const { diags } = linkSources(INBOX, DETAIL);
+  const { diags } = linkSources(INBOX, DETAIL, 'app Demo\n');
   assert.deepEqual(diags, []);
 });
 
@@ -272,7 +272,7 @@ test('regression: valid project mixing screen targets and flow targets yields an
   const other = 'screen Other\n  intent "x"\n  action "Back" -> Home\n';
   const flow = 'flow completeTask\n  go Other\n';
 
-  const { diags } = linkSources(home, other, flow);
+  const { diags } = linkSources(home, other, flow, 'app Demo\n');
 
   assert.deepEqual(diags, []);
 });
@@ -296,7 +296,7 @@ test('a list whose data type is declared in a different file produces no diagnos
   ].join('\n');
   const other = 'screen Other\n  intent "x"\n  action "Back" -> Inbox\n';
 
-  const { diags } = linkSources(data, inbox, other);
+  const { diags } = linkSources(data, inbox, other, 'app Demo\n');
 
   assert.deepEqual(diags, []);
 });
@@ -315,7 +315,7 @@ test('a field type declared in a different file produces no diagnostics', () => 
   const user = 'data User\n  name text\n';
   const task = 'data Task\n  owner User\n';
 
-  const { diags } = linkSources(user, task);
+  const { diags } = linkSources(user, task, 'app Demo\n');
 
   assert.deepEqual(diags, []);
 });
@@ -332,7 +332,7 @@ test('the UX105 fix text mentions the "one of" enum form', () => {
 });
 
 test('a genuine enum field with values produces no diagnostics', () => {
-  const { diags } = linkSources('data Task\n  status one of draft | live = draft\n');
+  const { diags } = linkSources('data Task\n  status one of draft | live = draft\n', 'app Demo\n');
   assert.deepEqual(diags, []);
 });
 
@@ -365,6 +365,75 @@ test('a screen whose only action is `retry` is still flagged UX202 — retry is 
   const { diags } = linkSources(src);
 
   assert.ok(diags.some(d => d.code === 'UX202' && d.message.includes('A')));
+});
+
+// --- UX200/UX203 report the offending element's own line, not the screen's ---
+
+test('UX200 reports the action\'s own line, not the screen\'s declaration line', () => {
+  const src = [
+    'screen Home',
+    '  at /',
+    '  intent "x"',
+    '  text "padding"',
+    '  text "padding"',
+    '  action "Go" -> Nowhere',
+  ].join('\n');
+  const { diags } = linkSources(src);
+  const dead = diags.find(d => d.code === 'UX200');
+  assert.ok(dead);
+  assert.equal(dead.line, 6);
+});
+
+test('UX203 reports the action\'s own line, not the screen\'s declaration line', () => {
+  const entry = [
+    'screen Home',
+    '  at /',
+    '  intent "x"',
+    '  text "padding"',
+    '  action "Go" -> Detail',
+  ].join('\n');
+  const { diags } = linkSources(entry, DETAIL);
+  const found = diags.find(d => d.code === 'UX203');
+  assert.ok(found);
+  assert.equal(found.line, 5);
+});
+
+// --- UX205 is a cross-file concern only; same-file duplicates are UX107's job ---
+
+test('two same-named screens in one file do not emit UX205', () => {
+  const src = [
+    'screen Dup', '  at /', '  intent "x"', '  action "Go" -> Dup',
+    'screen Dup', '  intent "y"', '  action "Back" -> Dup',
+  ].join('\n');
+  const { diags } = linkSources(src);
+  assert.ok(!diags.some(d => d.code === 'UX205'));
+});
+
+// --- UX111: exactly one `app`/`site` root, project-wide ---
+
+test('a project with no `app` or `site` anywhere reports UX111', () => {
+  const { diags } = linkSources(INBOX, DETAIL);
+  assert.ok(diags.some(d => d.code === 'UX111'));
+});
+
+test('a project with exactly one `app` reports no UX111', () => {
+  const withRoot = 'app Demo\n' + INBOX;
+  const { diags } = linkSources(withRoot, DETAIL);
+  assert.ok(!diags.some(d => d.code === 'UX111'));
+});
+
+test('a project declaring both `app` and `site` reports UX111', () => {
+  const appFile = 'app Demo\n' + INBOX;
+  const siteFile = 'site example.com\n' + DETAIL;
+  const { diags } = linkSources(appFile, siteFile);
+  assert.ok(diags.some(d => d.code === 'UX111'));
+});
+
+test('a project declaring two `app` roots reports UX111', () => {
+  const first = 'app One\n' + INBOX;
+  const second = 'app Two\n' + DETAIL;
+  const { diags } = linkSources(first, second);
+  assert.ok(diags.some(d => d.code === 'UX111'));
 });
 
 test('regression: UX205 does not fire for a single file declaring one screen, one flow, and one component with distinct names', () => {

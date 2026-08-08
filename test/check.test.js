@@ -123,6 +123,56 @@ test('a form listing each field once emits no UX108 — the regression that matt
   assert.ok(!codes(src).includes('UX108'));
 });
 
+// --- UX109: an `action` with no target renders but does nothing ---
+
+test('a bare `action` with nothing after it reports UX109', () => {
+  assert.ok(codes('screen A\n  intent "x"\n  action\n').includes('UX109'));
+});
+
+test('`action ""` (empty label, no target) reports UX109', () => {
+  assert.ok(codes('screen A\n  intent "x"\n  action ""\n').includes('UX109'));
+});
+
+test('`action "Just a label"` with no `->` target reports UX109', () => {
+  assert.ok(codes('screen A\n  intent "x"\n  action "Just a label with no target"\n').includes('UX109'));
+});
+
+test('`action "Save" ->` with a dangling arrow and no target reports UX109', () => {
+  assert.ok(codes('screen A\n  intent "x"\n  action "Save" ->\n').includes('UX109'));
+});
+
+test('a bare-verb action with a target but no label is legal — no UX109', () => {
+  assert.ok(!codes('screen A\n  intent "x"\n  action star\n').includes('UX109'));
+});
+
+test('a labeled action with a real target is legal — no UX109', () => {
+  assert.ok(!codes('screen A\n  intent "x"\n  action "New task" -> NewTask\n').includes('UX109'));
+});
+
+test('the UX109 fix shows both valid shapes', () => {
+  const { ast } = parse('screen A\n  intent "x"\n  action\n', 'a.ux');
+  const found = check(ast).find(d => d.code === 'UX109');
+  assert.match(found.fix, /action "Label" -> ScreenName/);
+  assert.match(found.fix, /action flowName/);
+});
+
+// --- UX110: a `form` with no data name ---
+
+test('a bare `form` with no data name reports UX110', () => {
+  assert.ok(codes('screen A\n  intent "x"\n  form\n    submit "Save" -> A\n').includes('UX110'));
+});
+
+test('a `form DataName` with a real data name reports no UX110', () => {
+  const src = 'data Task\n  title text\nscreen A\n  intent "x"\n  form Task\n    title\n    submit "Save" -> A\n';
+  assert.ok(!codes(src).includes('UX110'));
+});
+
+test('the UX110 fix is a pasteable line', () => {
+  const { ast } = parse('screen A\n  intent "x"\n  form\n    submit "Save" -> A\n', 'a.ux');
+  const found = check(ast).find(d => d.code === 'UX110');
+  assert.equal(found.fix, 'form DataName');
+});
+
 test('a form nested inside a group still gets its fields checked for UX108', () => {
   const src = [
     'data Expense', '  amount money',

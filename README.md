@@ -63,11 +63,14 @@ Requires Node 20 or newer. There are no dependencies to install — the CLI
 runs straight from a clean clone.
 
 `examples/` has worked projects of increasing size (`tasks`, `notes`,
-`shop`). `ux check` validates a project against 29 diagnostic
-codes (unresolved references, missing `intent`, screens with no way out,
-lists missing `empty`/`loading`/`error`, and more — each diagnostic prints
-a `fix:` line you can paste straight into the file). `ux map` prints the
-navigation graph and writes it to `<dir>/.build/app.map`.
+`shop`). `ux check` validates a project against diagnostics for unresolved
+references, missing `intent`, screens with no way out, lists missing
+`empty`/`loading`/`error`, and more — every diagnostic prints a `fix:` line
+naming the correction. Most fixes are a line you can paste directly into the
+file; some are instructions instead (rename this, delete that) — the label
+is the neutral `fix:` rather than `add:` on purpose, because not every fix
+is a line to add. `ux map` prints the navigation graph and writes it to
+`<dir>/.build/app.map`.
 
 ## Using it with Claude Code
 
@@ -77,6 +80,16 @@ Install the plugin in `plugin/`:
 /plugin marketplace add /path/to/ux-lang
 /plugin install ux-lang@ux-lang
 ```
+
+The plugin is markdown only — a skill, a `/ux` command, and reference docs.
+It does not ship a `ux` binary; it drives the CLI in this repo. Make `ux`
+available one of these ways before (or instead of) using the plugin:
+
+- `npm link` from the repo root — adds a global `ux` command.
+- `npx ux <args>` from the repo root — no install; `npx` resolves the
+  package's own `bin` entry when run inside it.
+- `node bin/ux <args>` from the repo root — works with no setup at all, and
+  is what the skill and `/ux` command fall back to if `ux` isn't linked.
 
 Then describe an app — Claude writes the `.ux`, checks it against
 `plugin/skills/ux/SKILL.md`'s grammar, and generates code from it. See

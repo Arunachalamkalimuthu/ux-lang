@@ -26,6 +26,19 @@ export function lex(source, file) {
         'replace each tab with two spaces'));
     }
 
+    // Count `"` on the *raw* line, before comment-stripping — an unmatched
+    // quote is precisely the condition that makes stripComment untrustworthy
+    // (it toggles "in string" per `"` it sees, so an odd count leaves it
+    // stuck "inside a string" for the rest of the line, silently eating a
+    // trailing `#` comment, and leaves everything downstream — indexOutsideString,
+    // splitArrow — with the same wrong idea of where the string ends).
+    const quotes = (raw.match(/"/g) ?? []).length;
+    if (quotes % 2 !== 0) {
+      diags.push(diag('UX004', file, line,
+        `Line ${line} has an unterminated string (an odd number of \`"\` characters).`,
+        'close the string with a matching `"`'));
+    }
+
     const stripped = stripComment(raw.replace(/\t/g, '  '));
     const text = stripped.trim();
     if (text === '') return;
