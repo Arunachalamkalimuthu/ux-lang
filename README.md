@@ -48,7 +48,7 @@ Same grammar both ways.
 
 No model has been trained on this language, so it has to be learnable in-context from a spec small enough to ship inside a prompt. That single constraint drives everything: no invented punctuation, no synonyms, no import statements, and a hard one-page budget on the grammar.
 
-It also makes the language testable in a way languages usually aren't — given the spec and three examples, what fraction of a model's first attempts parse clean? A low number means the language is wrong, not the model.
+It also makes the language testable in a way languages usually aren't — given the spec and the worked examples, what fraction of a model's first attempts parse clean? A low number means the language is wrong, not the model.
 
 ## Try it
 
@@ -62,8 +62,8 @@ npm test
 Requires Node 20 or newer. There are no dependencies to install — the CLI
 runs straight from a clean clone.
 
-`examples/` has three worked projects (`tasks`, `notes`, `shop`) of
-increasing size. `ux check` validates a project against 29 diagnostic
+`examples/` has worked projects of increasing size (`tasks`, `notes`,
+`shop`). `ux check` validates a project against 29 diagnostic
 codes (unresolved references, missing `intent`, screens with no way out,
 lists missing `empty`/`loading`/`error`, and more — each diagnostic prints
 a `fix:` line you can paste straight into the file). `ux map` prints the
@@ -85,11 +85,11 @@ Then describe an app — Claude writes the `.ux`, checks it against
 ## Status
 
 Format designed and specified. Toolchain built: lexer, parser, checker,
-linker, CLI (`ux check`, `ux map`), and Claude Code plugin. 124 tests pass.
-The adoption benchmark in `bench/` measures whether a model that has never
-seen `.ux` can write it correctly from the plugin's skill alone — both
-parse rate and whether the parsed result actually means what was asked.
-Known limitations:
+linker, CLI (`ux check`, `ux map`), and Claude Code plugin. The full test
+suite (`npm test`) passes. The adoption benchmark in `bench/` measures
+whether a model that has never seen `.ux` can write it correctly from the
+plugin's skill alone — both parse rate and whether the parsed result
+actually means what was asked. Known limitations:
 
 - The Chrome indexer (live page → `.ux`) is specified in the design but not
   yet built.
