@@ -85,3 +85,76 @@ test('unknown element keyword reports UX013', () => {
   const { diags } = parse('screen A\n  intent "x"\n  sparkle "hi"\n', 'a.ux');
   assert.equal(diags[0].code, 'UX013');
 });
+
+test('if/else nested inside a group folds correctly with no diagnostics', () => {
+  const { ast, diags } = parse(
+    'screen A\n  intent "x"\n  group "Section"\n    if user.admin\n      text "yes"\n    else\n      text "no"\n',
+    'a.ux');
+  assert.equal(diags.length, 0);
+  const group = ast.decls[0].body[0];
+  assert.equal(group.kind, 'Group');
+  const branch = group.body[0];
+  assert.equal(branch.kind, 'If');
+  assert.equal(branch.then[0].text, 'yes');
+  assert.equal(branch.otherwise[0].text, 'no');
+});
+
+test('if/else nested inside another if\'s then branch folds correctly', () => {
+  const { ast, diags } = parse(
+    'screen A\n  intent "x"\n  if outer\n    if inner\n      text "yes"\n    else\n      text "no"\n',
+    'a.ux');
+  assert.equal(diags.length, 0);
+  const outer = ast.decls[0].body[0];
+  assert.equal(outer.kind, 'If');
+  const inner = outer.then[0];
+  assert.equal(inner.kind, 'If');
+  assert.equal(inner.then[0].text, 'yes');
+  assert.equal(inner.otherwise[0].text, 'no');
+});
+
+test('else inside a group with no preceding if reports UX015, not UX013', () => {
+  const { diags } = parse(
+    'screen A\n  intent "x"\n  group "Section"\n    text "hi"\n    else\n      text "no"\n',
+    'a.ux');
+  assert.equal(diags.length, 1);
+  assert.equal(diags[0].code, 'UX015');
+});
+
+test('list where-split is quote-aware', () => {
+  const { ast, diags } = parse(
+    'screen A\n  intent "x"\n  list Task where name is "a where b"\n', 'a.ux');
+  assert.equal(diags.length, 0);
+  const list = ast.decls[0].body[0];
+  assert.equal(list.data, 'Task');
+  assert.equal(list.where, 'name is "a where b"');
+});
+
+test('form field named "submitted" is kept, and a real submit still parses', () => {
+  const { ast, diags } = parse(
+    'screen A\n  intent "x"\n  form Task\n    submitted date\n    submit "Create" -> create(task)\n',
+    'a.ux');
+  assert.equal(diags.length, 0);
+  const form = ast.decls[0].body[0];
+  assert.deepEqual(form.fields, ['submitted']);
+  assert.equal(form.submit.label, 'Create');
+  assert.deepEqual(form.submit.target, { name: 'create', args: ['task'] });
+});
+
+test('regression: two consecutive if/else pairs at screen top level fold independently', () => {
+  const { ast, diags } = parse(
+    'screen A\n  intent "x"\n  if a\n    text "a-yes"\n  else\n    text "a-no"\n  if b\n    text "b-yes"\n  else\n    text "b-no"\n',
+    'a.ux');
+  assert.equal(diags.length, 0);
+  const [first, second] = ast.decls[0].body;
+  assert.equal(first.cond, 'a');
+  assert.equal(first.then[0].text, 'a-yes');
+  assert.equal(first.otherwise[0].text, 'a-no');
+  assert.equal(second.cond, 'b');
+  assert.equal(second.then[0].text, 'b-yes');
+  assert.equal(second.otherwise[0].text, 'b-no');
+});
+
+test('regression: a screen body with no else anywhere still parses with no diagnostics', () => {
+  const { diags } = parse(SCREEN, 'a.ux');
+  assert.equal(diags.length, 0);
+});

@@ -1,5 +1,5 @@
 // Index of the first occurrence of `needle` that is not inside a double-quoted string.
-function indexOutsideString(text, needle) {
+export function indexOutsideString(text, needle) {
   let inString = false;
   for (let i = 0; i < text.length; i++) {
     if (text[i] === '"') inString = !inString;

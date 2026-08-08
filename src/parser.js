@@ -1,6 +1,6 @@
 import { lex, treeify } from './lexer.js';
 import { diag } from './diagnostics.js';
-import { words, splitArrow, parseTarget, parseString } from './parse-line.js';
+import { words, splitArrow, parseTarget, parseString, indexOutsideString } from './parse-line.js';
 
 export const PRIMITIVE_TYPES = new Set([
   'text', 'number', 'int', 'bool', 'date', 'time', 'datetime',
@@ -132,6 +132,7 @@ function parseScreen(node, file, diags) {
     at: null, needs: null, intent: null, body: [], bind: null,
   };
 
+  const bodyNodes = [];
   for (const child of node.children) {
     const [keyword] = words(child.text);
     const rest = child.text.slice(keyword.length).trim();
@@ -151,10 +152,26 @@ function parseScreen(node, file, diags) {
     }
     if (keyword === 'bind') { screen.bind = parseBind(child); continue; }
 
+    bodyNodes.push(child);
+  }
+
+  screen.body = parseBody(bodyNodes, file, diags);
+  return screen;
+}
+
+// Parses a list of sibling line-tree nodes into Element[], folding a trailing
+// `else` node into the `If` element that immediately precedes it (`else` is a
+// sibling of `if` in the indentation tree, not a child). Shared by screen
+// bodies, `group` bodies, `if` bodies, and (from Task 5) component bodies.
+function parseBody(children, file, diags) {
+  const body = [];
+  for (const child of children) {
+    const [keyword] = words(child.text);
+
     if (keyword === 'else') {
-      const previous = screen.body[screen.body.length - 1];
+      const previous = body[body.length - 1];
       if (previous?.kind === 'If') {
-        previous.otherwise = child.children.map(c => parseElement(c, file, diags)).filter(Boolean);
+        previous.otherwise = parseBody(child.children, file, diags);
       } else {
         diags.push(diag('UX015', file, child.line,
           '`else` has no matching `if`.',
@@ -164,10 +181,9 @@ function parseScreen(node, file, diags) {
     }
 
     const element = parseElement(child, file, diags);
-    if (element) screen.body.push(element);
+    if (element) body.push(element);
   }
-
-  return screen;
+  return body;
 }
 
 function parseBind(node) {
@@ -201,7 +217,7 @@ function parseElement(node, file, diags) {
       const str = parseString(rest);
       return {
         kind: 'Group', title: str ? str.value : rest, line: node.line,
-        body: node.children.map(c => parseElement(c, file, diags)).filter(Boolean),
+        body: parseBody(node.children, file, diags),
       };
     }
     case 'tabs': {
@@ -231,12 +247,7 @@ function parseElement(node, file, diags) {
 }
 
 function parseIf(node, cond, file, diags) {
-  const branch = { kind: 'If', cond, then: [], otherwise: [], line: node.line };
-  for (const child of node.children) {
-    const element = parseElement(child, file, diags);
-    if (element) branch.then.push(element);
-  }
-  return branch;
+  return { kind: 'If', cond, then: parseBody(node.children, file, diags), otherwise: [], line: node.line };
 }
 
 // `action "New task" -> NewTask`  |  `action star`
@@ -253,7 +264,7 @@ function parseAction(text, line) {
 function parseForm(node, rest, file, diags) {
   const form = { kind: 'Form', data: rest.trim(), fields: [], submit: null, line: node.line };
   for (const child of node.children) {
-    if (child.text.startsWith('submit')) {
+    if (words(child.text)[0] === 'submit') {
       const { left, right } = splitArrow(child.text);
       const str = parseString(left.slice('submit'.length).trim());
       form.submit = { label: str ? str.value : null, target: right ? parseTarget(right) : null };
@@ -265,7 +276,7 @@ function parseForm(node, rest, file, diags) {
 }
 
 function parseList(node, rest, file, diags) {
-  const whereAt = rest.indexOf(' where ');
+  const whereAt = indexOutsideString(rest, ' where ');
   const list = {
     kind: 'List', line: node.line,
     data: (whereAt === -1 ? rest : rest.slice(0, whereAt)).trim(),
@@ -299,6 +310,6 @@ function parseState(text, keyword, line) {
   const str = parseString(afterKeyword);
   const value = str ? str.value : afterKeyword;
   const remainder = str ? str.rest : '';
-  const action = remainder.startsWith('action') ? parseAction(remainder, line) : null;
+  const action = words(remainder)[0] === 'action' ? parseAction(remainder, line) : null;
   return { text: value, action };
 }
