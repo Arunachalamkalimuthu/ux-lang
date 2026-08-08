@@ -30,6 +30,12 @@ export function parse(source, file) {
       case 'screen':
         ast.decls.push(parseScreen(node, file, diags));
         break;
+      case 'flow':
+        ast.decls.push(parseFlow(node, file, diags));
+        break;
+      case 'component':
+        ast.decls.push(parseComponent(node, file, diags));
+        break;
       default:
         diags.push(diag('UX010', file, node.line,
           `\`${keyword}\` is not a top-level keyword.`,
@@ -312,4 +318,87 @@ function parseState(text, keyword, line) {
   const remainder = str ? str.rest : '';
   const action = words(remainder)[0] === 'action' ? parseAction(remainder, line) : null;
   return { text: value, action };
+}
+
+const FLOW_KEYWORDS = ['set', 'call', 'go', 'toast', 'confirm', 'error'];
+
+function parseSignature(text, keyword) {
+  const target = parseTarget(text.slice(keyword.length).trim());
+  return { name: target?.name ?? '', params: target?.args ?? [] };
+}
+
+function parseFlow(node, file, diags) {
+  const { name, params } = parseSignature(node.text, 'flow');
+  return {
+    kind: 'Flow', name, params, line: node.line, file,
+    steps: node.children.map(c => parseStep(c, file, diags)).filter(Boolean),
+  };
+}
+
+function parseComponent(node, file, diags) {
+  const { name, params } = parseSignature(node.text, 'component');
+  return {
+    kind: 'Component', name, params, line: node.line, file,
+    body: parseBody(node.children, file, diags),
+  };
+}
+
+function parseStep(node, file, diags) {
+  const [keyword] = words(node.text);
+  const rest = node.text.slice(keyword.length).trim();
+
+  switch (keyword) {
+    case 'set': {
+      const eq = rest.indexOf('=');
+      if (eq === -1) {
+        diags.push(diag('UX017', file, node.line,
+          '`set` needs a value.', 'write:  set task.done = true'));
+        return null;
+      }
+      return { kind: 'Set', target: rest.slice(0, eq).trim(), value: rest.slice(eq + 1).trim(), line: node.line };
+    }
+    case 'call': {
+      const target = parseTarget(rest) ?? parseDottedCall(rest);
+      const branches = { ok: [], fail: [] };
+      for (const child of node.children) {
+        const [branchName] = words(child.text);
+        if (branchName !== 'ok' && branchName !== 'fail') continue;
+        const body = splitArrow(child.text).right;
+        if (!body) continue;
+        const step = parseStep({ ...child, text: body, children: [] }, file, diags);
+        if (step) branches[branchName].push(step);
+      }
+      return { kind: 'Call', name: target.name, args: target.args, ...branches, line: node.line };
+    }
+    case 'go':
+      return { kind: 'Go', target: parseTarget(rest), line: node.line };
+    case 'toast': {
+      const str = parseString(rest);
+      const undoMatch = /undo\s+(\S+)/.exec(str ? str.rest : rest);
+      return { kind: 'Toast', text: str ? str.value : rest, undo: undoMatch ? undoMatch[1] : null, line: node.line };
+    }
+    case 'confirm': {
+      const str = parseString(rest);
+      return { kind: 'Confirm', text: str ? str.value : rest, line: node.line };
+    }
+    case 'error': {
+      const str = parseString(rest);
+      return { kind: 'ErrorStep', text: str ? str.value : rest, line: node.line };
+    }
+    default:
+      diags.push(diag('UX016', file, node.line,
+        `\`${keyword}\` is not a flow step.`,
+        `use one of: ${FLOW_KEYWORDS.join(', ')}`));
+      return null;
+  }
+}
+
+// `api.complete(task)` — parseTarget rejects the dot, so handle it here.
+function parseDottedCall(text) {
+  const match = /^([A-Za-z][\w.]*)\s*(?:\(([^)]*)\))?$/.exec(text.trim());
+  if (!match) return { name: text.trim(), args: [] };
+  return {
+    name: match[1],
+    args: (match[2] ?? '').split(',').map(a => a.trim()).filter(Boolean),
+  };
 }
