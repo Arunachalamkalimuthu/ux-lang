@@ -4,5 +4,5 @@ screen NoteDetail(note)
   use NoteRow(note)
   show note.body
 
-  action "Pin" -> togglePin(note)
+  action togglePin(note)
   action "Back" -> AllNotes

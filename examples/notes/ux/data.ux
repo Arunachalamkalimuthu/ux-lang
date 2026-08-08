@@ -4,3 +4,4 @@ data Note
   body     text
   pinned   bool  = false
   updated  datetime
+  tags     [text]
