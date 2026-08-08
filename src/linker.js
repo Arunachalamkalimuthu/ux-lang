@@ -191,7 +191,7 @@ function checkArity(from, target, declared, diags) {
   if (target.args.length === expected) return;
   diags.push(diag('UX203', from.file, from.line,
     `\`${target.name}\` expects ${expected} argument(s) but \`${from.name}\` passes ${target.args.length}.`,
-    `write:  -> ${target.name}(${declaredParams(declared).join(', ')})`));
+    `-> ${target.name}(${declaredParams(declared).join(', ')})`));
 }
 
 // `screen Detail(task)` — params live on the declaration.

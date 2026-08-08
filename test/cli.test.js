@@ -111,9 +111,11 @@ test('unknown command against a directory with no ux/ folder names the command, 
 });
 
 // Regression guard for Finding 2: renderDiagnostics already prepends
-// `  add:  ` to every fix. A fix string that bakes the same prefix into
-// itself (as `check.js`'s UX100 fix used to) would render as a doubled
-// `add:  add:  ...` line. Assert on the actual rendered stdout, not on the
+// `  fix:  ` to every fix (it used to be `  add:  `, which was wrong — not
+// every fix is a line to add, see report round 2). A fix string that bakes
+// the same kind of boilerplate into itself (as `check.js`'s UX100 fix used
+// to, with a baked-in `add:  `) would render as a doubled
+// `fix:  add:  ...` line. Assert on the actual rendered stdout, not on the
 // diagnostic object, since testing the layers in isolation is exactly why
 // this bug survived.
 test('check output never doubles the fix-line prefix and the fix is a pasteable .ux line', async () => {
@@ -122,8 +124,8 @@ test('check output never doubles the fix-line prefix and the fix is a pasteable 
     run('node', [CLI, 'check', join(dir, 'ux')]),
     err => {
       assert.equal(err.code, 1);
-      assert.doesNotMatch(err.stdout, /add:\s*add:/);
-      assert.match(err.stdout, /add:\s+intent "why this screen exists"/);
+      assert.doesNotMatch(err.stdout, /fix:\s*(add|write):/);
+      assert.match(err.stdout, /fix:\s+intent "why this screen exists"/);
       return true;
     },
   );

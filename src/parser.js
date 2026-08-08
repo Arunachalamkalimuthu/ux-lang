@@ -95,14 +95,14 @@ function parseField(node, file, diags) {
   if (!type) {
     diags.push(diag('UX012', file, node.line,
       `Field \`${name}\` has no type.`,
-      `write:  ${name} text`));
+      `${name} text`));
     return null;
   }
 
   if (FIELD_MODIFIERS.has(type)) {
     diags.push(diag('UX012', file, node.line,
       `Field \`${name}\` has no type.`,
-      `write:  ${name} text`));
+      `${name} text`));
     return null;
   }
 
@@ -156,7 +156,7 @@ function parseScreen(node, file, diags) {
       if (!str) {
         diags.push(diag('UX014', file, child.line,
           'intent must be a quoted one-line sentence.',
-          'write:  intent "why this screen exists"'));
+          'intent "why this screen exists"'));
       } else {
         screen.intent = str.value;
       }
@@ -358,13 +358,13 @@ function parseStep(node, file, diags) {
       const eq = rest.indexOf('=');
       if (eq === -1) {
         diags.push(diag('UX017', file, node.line,
-          '`set` needs a value.', 'write:  set task.done = true'));
+          '`set` needs a value.', 'set task.done = true'));
         return null;
       }
       const value = rest.slice(eq + 1).trim();
       if (value.startsWith('=')) {
         diags.push(diag('UX017', file, node.line,
-          '`set` uses a single `=`, not `==`.', 'write:  set task.done = true'));
+          '`set` uses a single `=`, not `==`.', 'set task.done = true'));
         return null;
       }
       return { kind: 'Set', target: rest.slice(0, eq).trim(), value, line: node.line };
@@ -379,7 +379,7 @@ function parseStep(node, file, diags) {
         if (!body) {
           diags.push(diag('UX019', file, child.line,
             `\`${branchName}\` needs \`->\` and a step.`,
-            `write:  ${branchName} -> toast "Done"`));
+            `${branchName} -> toast "Done"`));
           continue;
         }
         if (child.children.length > 0) {

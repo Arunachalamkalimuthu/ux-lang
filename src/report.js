@@ -6,7 +6,7 @@ export function renderDiagnostics(diags) {
   const lines = [];
   for (const d of diags) {
     lines.push(`${d.file}:${d.line}  ${d.code}  ${d.message}`);
-    lines.push(`  add:  ${d.fix}`);
+    lines.push(`  fix:  ${d.fix}`);
     lines.push('');
   }
 
