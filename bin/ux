@@ -1,0 +1,49 @@
+#!/usr/bin/env node
+import { writeFile, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { loadProject } from '../src/project.js';
+import { link } from '../src/linker.js';
+import { renderMap } from '../src/map.js';
+import { renderDiagnostics } from '../src/report.js';
+import { hasErrors } from '../src/diagnostics.js';
+
+const USAGE = `ux — check and map .ux projects
+
+  ux check [dir]   validate a project (default dir: ux)
+  ux map   [dir]   print the flow graph and write <dir>/.build/app.map
+`;
+
+const [command, dirArg] = process.argv.slice(2);
+const dir = dirArg ?? 'ux';
+
+if (!command || command === 'help' || command === '--help') {
+  process.stdout.write(USAGE);
+  process.exit(0);
+}
+
+let programs, diags;
+try {
+  ({ programs, diags } = await loadProject(dir));
+} catch (error) {
+  process.stdout.write(`Could not read \`${dir}\`: ${error.message}\n  add:  create a ${dir}/ directory with .ux files\n`);
+  process.exit(1);
+}
+
+const linked = link(programs);
+const all = [...diags, ...linked.diags];
+
+if (command === 'check') {
+  process.stdout.write(renderDiagnostics(all) + '\n');
+  process.exit(hasErrors(all) ? 1 : 0);
+}
+
+if (command === 'map') {
+  const map = renderMap(linked);
+  process.stdout.write(map + '\n');
+  await mkdir(join(dir, '.build'), { recursive: true });
+  await writeFile(join(dir, '.build', 'app.map'), map + '\n');
+  process.exit(0);
+}
+
+process.stdout.write(`Unknown command \`${command}\`.\n  add:  ux check\n`);
+process.exit(1);
