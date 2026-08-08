@@ -133,8 +133,14 @@ function parseField(node, file, diags) {
 const ELEMENT_KEYWORDS = ['heading', 'text', 'show', 'group', 'tabs', 'if', 'action', 'form', 'list', 'use'];
 
 function parseScreen(node, file, diags) {
+  const signature = words(node.text)[1] ?? '';
+  const parsed = parseTarget(signature);
   const screen = {
-    kind: 'Screen', name: words(node.text)[1] ?? '', line: node.line, file,
+    kind: 'Screen',
+    name: parsed?.name ?? signature,
+    params: parsed?.args ?? [],
+    rawName: signature,
+    line: node.line, file,
     at: null, needs: null, intent: null, body: [], bind: null,
   };
 
