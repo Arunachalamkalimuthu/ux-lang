@@ -20,7 +20,7 @@ resolve across the whole project.
 app Name              # or: site example.com
 
 data Name
-  field  type  required      # required | = default | type? | [type]
+  title  text  required      # required | = default | type? | [type]
   status one of a | b = a
   owner  User                 # a PascalCase name references another data
   tags   [text]                # a list of a primitive type
@@ -63,7 +63,7 @@ component Name(param)
   ...                        # same elements as a screen body
 
 flow name(arg)
-  set thing.field = value
+  set task.done = true
   call api.method(arg)
     ok   -> toast "Done" undo 5s
     fail -> error "Message"
