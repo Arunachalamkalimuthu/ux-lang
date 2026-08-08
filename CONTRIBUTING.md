@@ -37,8 +37,9 @@ A grammar change only earns its keep if it holds up on **both** numbers.
 ## Working on it
 
 ```bash
-npm test                        # everything (124 tests)
-node --test test/parser.test.js # one file
+npm test                             # everything (124 tests)
+node --test test/parser-data.test.js # one file (parser tests are split:
+                                      # parser-data / parser-flow / parser-screen)
 node bin/ux check examples/tasks/ux
 node bin/ux map   examples/notes/ux
 node bench/inspect.mjs examples/shop/ux

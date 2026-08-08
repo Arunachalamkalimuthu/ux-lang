@@ -63,7 +63,7 @@ Requires Node 20 or newer. There are no dependencies to install — the CLI
 runs straight from a clean clone.
 
 `examples/` has three worked projects (`tasks`, `notes`, `shop`) of
-increasing size. `ux check` validates a project against 28 diagnostic
+increasing size. `ux check` validates a project against 29 diagnostic
 codes (unresolved references, missing `intent`, screens with no way out,
 lists missing `empty`/`loading`/`error`, and more — each diagnostic prints
 a `fix:` line you can paste straight into the file). `ux map` prints the
@@ -89,8 +89,16 @@ linker, CLI (`ux check`, `ux map`), and Claude Code plugin. 124 tests pass.
 The adoption benchmark in `bench/` measures whether a model that has never
 seen `.ux` can write it correctly from the plugin's skill alone — both
 parse rate and whether the parsed result actually means what was asked.
-The Chrome indexer (live page → `.ux`) is specified in the design but not
-yet built.
+Known limitations:
+
+- The Chrome indexer (live page → `.ux`) is specified in the design but not
+  yet built.
+- No search or filter-by-typed-input. A `list`'s `where` cannot reference a
+  value the user just typed on that screen — see the format spec §10 and
+  `bench/README.md` for the details.
+- Generated-code drift is not enforced by the CLI. `codegen.md` asks a
+  generator to keep code and `.ux` in sync; nothing in `ux check` verifies
+  that it actually did.
 
 - **[Format design](docs/superpowers/specs/2026-08-08-ux-format-design.md)**
 - **[Toolchain plan](docs/superpowers/plans/2026-08-08-ux-toolchain-v1.md)**
