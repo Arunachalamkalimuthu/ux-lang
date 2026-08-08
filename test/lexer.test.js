@@ -41,3 +41,19 @@ test('treeify nests by depth', () => {
   assert.deepEqual(screen.children.map(c => c.text), ['list Task', 'action "x"']);
   assert.deepEqual(screen.children[0].children.map(c => c.text), ['row title']);
 });
+
+test('lex rejects over-indentation with UX003', () => {
+  const { diags } = lex('screen A\n    intent "x"\n', 'a.ux');
+  assert.equal(diags[0].code, 'UX003');
+  assert.equal(diags[0].line, 2);
+});
+
+test('lex allows normal one-level increase', () => {
+  const { diags } = lex('screen A\n  intent "x"\n', 'a.ux');
+  assert.equal(diags.length, 0);
+});
+
+test('lex allows dedenting by more than one level', () => {
+  const { diags } = lex('screen A\n  list B\n    item C\naction D\n', 'a.ux');
+  assert.equal(diags.length, 0);
+});

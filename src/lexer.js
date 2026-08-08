@@ -15,6 +15,7 @@ function stripComment(text) {
 export function lex(source, file) {
   const diags = [];
   const lines = [];
+  let previousDepth = -1;
 
   source.split('\n').forEach((raw, index) => {
     const line = index + 1;
@@ -37,14 +38,22 @@ export function lex(source, file) {
         `use ${suggestion} spaces`));
     }
 
-    lines.push({ depth: Math.floor(indent / 2), text, line, file });
+    const depth = Math.floor(indent / 2);
+    if (depth > previousDepth + 1) {
+      diags.push(diag('UX003', file, line,
+        `This line is indented ${depth} levels, but the line above is at ${previousDepth}.`,
+        `indent it ${(previousDepth + 1) * 2} spaces`));
+    }
+
+    lines.push({ depth, text, line, file });
+    previousDepth = depth;
   });
 
   return { lines, diags };
 }
 
 export function treeify(lines) {
-  const root = { depth: -1, text: '<root>', line: 0, file: lines[0]?.file ?? '', children: [] };
+  const root = { depth: -1, text: '<root>', children: [] };
   const stack = [root];
 
   for (const entry of lines) {
