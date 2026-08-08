@@ -1,0 +1,9 @@
+screen NewNote
+  intent "Write something down without ceremony"
+
+  form Note
+    title required
+    body
+    submit "Save" -> saveNote(note)
+
+  action "Cancel" -> AllNotes

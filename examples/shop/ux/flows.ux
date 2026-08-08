@@ -1,0 +1,12 @@
+flow addToCart(product)
+  call api.addToCart(product)
+    ok -> toast "Added"
+    fail -> error "Could not add that."
+  go Cart
+
+flow pay(order)
+  confirm "Charge your card now?"
+  call api.pay(order)
+    ok -> toast "Order placed"
+    fail -> error "Payment did not go through."
+  go Catalog

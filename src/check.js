@@ -22,8 +22,8 @@ export function check(ast) {
     seen.add(decl.name);
 
     if (decl.kind === 'Data') checkData(decl, dataNames, file, diags);
-    if (decl.kind === 'Screen') checkScreen(decl, dataNames, file, diags);
-    if (decl.kind === 'Component') checkElements(decl.body, dataNames, file, diags);
+    if (decl.kind === 'Screen') checkScreen(decl, file, diags);
+    if (decl.kind === 'Component') checkElements(decl.body, file, diags);
   }
 
   return diags;
@@ -39,7 +39,7 @@ function checkData(decl, dataNames, file, diags) {
   }
 }
 
-function checkScreen(screen, dataNames, file, diags) {
+function checkScreen(screen, file, diags) {
   if (!screen.intent) {
     diags.push(diag('UX100', file, screen.line,
       `Screen \`${screen.name}\` has no intent.`,
@@ -50,23 +50,17 @@ function checkScreen(screen, dataNames, file, diags) {
       `Screen \`${screen.name}\` has no content.`,
       'add at least one element, for example:  text "…"'));
   }
-  checkElements(screen.body, dataNames, file, diags);
+  checkElements(screen.body, file, diags);
 }
 
-function checkElements(elements, dataNames, file, diags) {
+function checkElements(elements, file, diags) {
   for (const element of elements) {
-    if (element.kind === 'Group') checkElements(element.body, dataNames, file, diags);
+    if (element.kind === 'Group') checkElements(element.body, file, diags);
     if (element.kind === 'If') {
-      checkElements(element.then, dataNames, file, diags);
-      checkElements(element.otherwise, dataNames, file, diags);
+      checkElements(element.then, file, diags);
+      checkElements(element.otherwise, file, diags);
     }
     if (element.kind !== 'List') continue;
-
-    if (element.data && !dataNames.has(element.data)) {
-      diags.push(diag('UX106', file, element.line,
-        `\`${element.data}\` is not a declared data type.`,
-        `data ${element.data}`));
-    }
 
     for (const [state, code, suggestion] of STATE_RULES) {
       if (element.states[state]) continue;

@@ -1,0 +1,9 @@
+screen NewTask
+  intent "Capture a new task in one step"
+
+  form Task
+    title required
+    due
+    submit "Create" -> create(task)
+
+  action "Cancel" -> Inbox

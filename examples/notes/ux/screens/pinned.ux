@@ -1,0 +1,12 @@
+screen Pinned
+  intent "See only the notes worth keeping at hand"
+
+  list Note where pinned
+    sort by updated
+    row title, updated
+    tap -> NoteDetail(note)
+    empty "Nothing pinned yet." action "See all" -> AllNotes
+    loading skeleton 3 rows
+    error "Could not load pinned notes." action retry
+
+  action "All notes" -> AllNotes

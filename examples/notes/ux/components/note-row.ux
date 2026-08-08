@@ -1,0 +1,3 @@
+component NoteRow(note)
+  show note.title
+  show note.updated

@@ -43,11 +43,6 @@ test('reference to a declared data type is allowed', () => {
   assert.deepEqual(codes('data User\n  name text\ndata Task\n  owner User\n'), []);
 });
 
-test('list of an undeclared type reports UX106', () => {
-  const src = 'screen A\n  intent "x"\n  list Ghost\n    empty "n"\n    loading "l"\n    error "e"\n';
-  assert.ok(codes(src).includes('UX106'));
-});
-
 test('duplicate declaration reports UX107', () => {
   assert.ok(codes('data Task\n  title text\ndata Task\n  title text\n').includes('UX107'));
 });

@@ -192,6 +192,61 @@ test('regression: valid project mixing screen targets and flow targets yields an
   assert.deepEqual(diags, []);
 });
 
+// --- UX106: list names a declared data type (moved from check.js — this is a
+// cross-file fact, not a single-file one; see linker.js#link) ---
+
+test('a list naming an undeclared data type reports UX106', () => {
+  const src = 'screen A\n  at /\n  intent "x"\n  list Ghost\n    empty "n"\n    loading "l"\n    error "e"\n    action "Back" -> A\n';
+  const { diags } = linkSources(src);
+  assert.ok(diags.some(d => d.code === 'UX106' && d.message.includes('Ghost')));
+});
+
+test('a list whose data type is declared in a different file produces no diagnostics', () => {
+  const data = 'data Task\n  title text\n';
+  const inbox = [
+    'screen Inbox', '  at /', '  intent "x"',
+    '  list Task',
+    '    empty "None."', '    loading skeleton 3 rows', '    error "Failed."',
+    '  action "Next" -> Other',
+  ].join('\n');
+  const other = 'screen Other\n  intent "x"\n  action "Back" -> Inbox\n';
+
+  const { diags } = linkSources(data, inbox, other);
+
+  assert.deepEqual(diags, []);
+});
+
+// --- `retry` is a built-in action, not a navigation target ---
+
+test('`action retry` inside a list\'s error state reports no UX200', () => {
+  const src = [
+    'screen A', '  at /', '  intent "x"',
+    '  list Task',
+    '    empty "None."', '    loading skeleton 3 rows',
+    '    error "Failed." action retry',
+    '  action "Next" -> B',
+    'screen B', '  intent "x"',
+    '  action "Back" -> A',
+  ].join('\n');
+
+  const { diags } = linkSources(src);
+
+  assert.ok(!diags.some(d => d.code === 'UX200'));
+});
+
+test('a screen whose only action is `retry` is still flagged UX202 — retry is not a way out', () => {
+  const src = [
+    'screen A', '  at /', '  intent "x"',
+    '  list Task',
+    '    empty "None."', '    loading skeleton 3 rows',
+    '    error "Failed." action retry',
+  ].join('\n');
+
+  const { diags } = linkSources(src);
+
+  assert.ok(diags.some(d => d.code === 'UX202' && d.message.includes('A')));
+});
+
 test('regression: UX205 does not fire for a single file declaring one screen, one flow, and one component with distinct names', () => {
   const src = [
     'screen Home',

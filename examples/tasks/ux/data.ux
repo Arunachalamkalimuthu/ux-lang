@@ -1,0 +1,11 @@
+data User
+  id     id
+  name   text   required
+  email  email  required
+
+data Task
+  id     id
+  title  text  required
+  done   bool  = false
+  due    date?
+  owner  User

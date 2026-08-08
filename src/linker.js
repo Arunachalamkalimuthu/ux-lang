@@ -1,24 +1,36 @@
 import { diag } from './diagnostics.js';
 
+// Verbs a screen can send an `action` at that are handled by the runtime, not
+// by the app's own navigation graph — so they need no declared `screen` or
+// `flow`, and (deliberately) create no edge: they don't take the user
+// anywhere, so they can't count as a screen's way out (UX202). Kept to a
+// single entry on purpose; add another only when a real example needs it.
+const BUILTIN_ACTIONS = new Set(['retry']);
+
 export function link(programs) {
   const diags = [];
   const screens = new Map();
   const flows = new Map();
   const components = new Map();
+  const dataTypes = new Set();
 
   for (const program of programs) {
     for (const decl of program.decls) {
       if (decl.kind === 'Screen') registerDecl(screens, decl, diags);
       if (decl.kind === 'Flow') registerDecl(flows, decl, diags);
       if (decl.kind === 'Component') registerDecl(components, decl, diags);
+      if (decl.kind === 'Data') dataTypes.add(decl.name);
     }
   }
 
   const edges = [];
 
   for (const screen of screens.values()) {
+    checkListDataTypes(screen.body, dataTypes, screen.file, diags);
+
     for (const { target, via } of navigationTargets(screen)) {
       if (!target) continue;
+      if (BUILTIN_ACTIONS.has(target.name)) continue;
 
       if (screens.has(target.name)) {
         edges.push({ from: screen.name, to: target.name, via });
@@ -60,8 +72,10 @@ export function link(programs) {
     }
   }
 
-  // Components can `use` other components too.
+  // Components can `use` other components too, and can hold lists of their own.
   for (const component of components.values()) {
+    checkListDataTypes(component.body, dataTypes, component.file, diags);
+
     for (const use of componentUses(component)) {
       if (components.has(use.component)) continue;
       diags.push(diag('UX204', component.file, use.line,
@@ -150,6 +164,28 @@ function* navigationTargets(screen) {
       if (element.kind === 'Group') yield* walk(element.body);
       if (element.kind === 'If') { yield* walk(element.then); yield* walk(element.otherwise); }
     }
+  }
+}
+
+// A `list`'s data type resolves across the whole project (spec R5: names
+// resolve globally, no imports), so this is a linker concern, not
+// check.js's — a project conventionally keeps `data` in its own file,
+// separate from the screens whose lists reference it.
+function checkListDataTypes(elements, dataTypes, file, diags) {
+  for (const list of listElements(elements)) {
+    if (list.data && !dataTypes.has(list.data)) {
+      diags.push(diag('UX106', file, list.line,
+        `\`${list.data}\` is not a declared data type.`,
+        `data ${list.data}`));
+    }
+  }
+}
+
+function* listElements(elements) {
+  for (const element of elements) {
+    if (element.kind === 'List') yield element;
+    if (element.kind === 'Group') yield* listElements(element.body);
+    if (element.kind === 'If') { yield* listElements(element.then); yield* listElements(element.otherwise); }
   }
 }
 
