@@ -1,4 +1,5 @@
 import { diag } from './diagnostics.js';
+import { PRIMITIVE_TYPES } from './parser.js';
 
 // Verbs a screen can send an `action` at that are handled by the runtime, not
 // by the app's own navigation graph — so they need no declared `screen` or
@@ -13,14 +14,24 @@ export function link(programs) {
   const flows = new Map();
   const components = new Map();
   const dataTypes = new Set();
+  const dataDecls = [];
 
   for (const program of programs) {
     for (const decl of program.decls) {
       if (decl.kind === 'Screen') registerDecl(screens, decl, diags);
       if (decl.kind === 'Flow') registerDecl(flows, decl, diags);
       if (decl.kind === 'Component') registerDecl(components, decl, diags);
-      if (decl.kind === 'Data') dataTypes.add(decl.name);
+      if (decl.kind === 'Data') { dataTypes.add(decl.name); dataDecls.push(decl); }
     }
+  }
+
+  // A field's type resolves against every `data` in the project (primitive,
+  // inline enum, or another `data` — possibly declared in a different file,
+  // per spec §7's own `data/user.ux` + `data/task.ux` layout), so this
+  // requires the complete `dataTypes` table above and cannot run until every
+  // program has been scanned.
+  for (const decl of dataDecls) {
+    checkFieldTypes(decl, dataTypes, diags);
   }
 
   const edges = [];
@@ -164,6 +175,19 @@ function* navigationTargets(screen) {
       if (element.kind === 'Group') yield* walk(element.body);
       if (element.kind === 'If') { yield* walk(element.then); yield* walk(element.otherwise); }
     }
+  }
+}
+
+// A field's type is a primitive, an inline enum, or a reference to another
+// declared `data` — and that last case is a project-wide name lookup, same
+// as a list's data type below.
+function checkFieldTypes(decl, dataTypes, diags) {
+  for (const field of decl.fields) {
+    if (field.type === 'enum' && Array.isArray(field.enum)) continue;
+    if (PRIMITIVE_TYPES.has(field.type) || dataTypes.has(field.type)) continue;
+    diags.push(diag('UX105', decl.file, field.line,
+      `\`${field.type}\` is not a known type.`,
+      `use a primitive (${[...PRIMITIVE_TYPES].slice(0, 5).join(', ')}, …), declare \`data ${field.type}\`, or use \`one of a | b\` for an enum`));
   }
 }
 

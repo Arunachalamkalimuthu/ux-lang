@@ -1,5 +1,4 @@
 import { diag } from './diagnostics.js';
-import { PRIMITIVE_TYPES } from './parser.js';
 
 const STATE_RULES = [
   ['empty', 'UX102', 'empty "Nothing here yet."'],
@@ -7,10 +6,15 @@ const STATE_RULES = [
   ['error', 'UX104', 'error "Could not load this."'],
 ];
 
+// check.js owns *structure*: is this screen well-formed, does this list
+// declare its states, is a name reused within one file. Whether a name that
+// is *referenced* actually exists anywhere in the project — a list's data
+// type (UX106), a field's data-type reference (UX105), a navigation target
+// (UX200) — is a linker concern, because "exists" can only be answered once
+// every file has been read. See linker.js.
 export function check(ast) {
   const diags = [];
   const file = ast.file;
-  const dataNames = new Set(ast.decls.filter(d => d.kind === 'Data').map(d => d.name));
 
   const seen = new Set();
   for (const decl of ast.decls) {
@@ -21,22 +25,11 @@ export function check(ast) {
     }
     seen.add(decl.name);
 
-    if (decl.kind === 'Data') checkData(decl, dataNames, file, diags);
     if (decl.kind === 'Screen') checkScreen(decl, file, diags);
     if (decl.kind === 'Component') checkElements(decl.body, file, diags);
   }
 
   return diags;
-}
-
-function checkData(decl, dataNames, file, diags) {
-  for (const field of decl.fields) {
-    if (field.type === 'enum' && Array.isArray(field.enum)) continue;
-    if (PRIMITIVE_TYPES.has(field.type) || dataNames.has(field.type)) continue;
-    diags.push(diag('UX105', file, field.line,
-      `\`${field.type}\` is not a known type.`,
-      `use a primitive (${[...PRIMITIVE_TYPES].slice(0, 5).join(', ')}, …), declare \`data ${field.type}\`, or use \`one of a | b\` for an enum`));
-  }
 }
 
 function checkScreen(screen, file, diags) {

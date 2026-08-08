@@ -35,14 +35,6 @@ test('complete list produces no state errors', () => {
   assert.deepEqual(codes(src), []);
 });
 
-test('unknown field type reports UX105', () => {
-  assert.ok(codes('data Task\n  title bogus\n').includes('UX105'));
-});
-
-test('reference to a declared data type is allowed', () => {
-  assert.deepEqual(codes('data User\n  name text\ndata Task\n  owner User\n'), []);
-});
-
 test('duplicate declaration reports UX107', () => {
   assert.ok(codes('data Task\n  title text\ndata Task\n  title text\n').includes('UX107'));
 });
@@ -87,21 +79,7 @@ test('a fully valid file produces no diagnostics at all', () => {
   assert.deepEqual(codes(src), []);
 });
 
-test('a bare "status enum" field with no values reports UX105', () => {
-  assert.ok(codes('data Task\n  status enum\n').includes('UX105'));
-});
-
-test('a genuine enum field with values produces no diagnostics', () => {
-  assert.deepEqual(codes('data Task\n  status one of draft | live = draft\n'), []);
-});
-
 test('data and screen sharing a name in one file reports UX107', () => {
   const src = 'data Task\n  title text\nscreen Task\n  intent "x"\n  text "hi"\n';
   assert.ok(codes(src).includes('UX107'));
-});
-
-test('the UX105 fix text mentions the "one of" enum form', () => {
-  const { ast } = parse('data Task\n  status enum\n', 'a.ux');
-  const found = check(ast).find(d => d.code === 'UX105');
-  assert.match(found.fix, /one of/);
 });

@@ -216,6 +216,41 @@ test('a list whose data type is declared in a different file produces no diagnos
   assert.deepEqual(diags, []);
 });
 
+// --- UX105: a data field's type resolves against every declared data type
+// (moved from check.js — a field's type can be a primitive, an inline enum,
+// or a reference to another `data`, and that third case is a project-wide
+// name lookup exactly like UX106's; see linker.js#checkFieldTypes) ---
+
+test('a field naming an undeclared data type reports UX105', () => {
+  const { diags } = linkSources('data Task\n  title bogus\n');
+  assert.ok(diags.some(d => d.code === 'UX105' && d.message.includes('bogus')));
+});
+
+test('a field type declared in a different file produces no diagnostics', () => {
+  const user = 'data User\n  name text\n';
+  const task = 'data Task\n  owner User\n';
+
+  const { diags } = linkSources(user, task);
+
+  assert.deepEqual(diags, []);
+});
+
+test('a bare "status enum" field with no values reports UX105', () => {
+  const { diags } = linkSources('data Task\n  status enum\n');
+  assert.ok(diags.some(d => d.code === 'UX105'));
+});
+
+test('the UX105 fix text mentions the "one of" enum form', () => {
+  const { diags } = linkSources('data Task\n  status enum\n');
+  const found = diags.find(d => d.code === 'UX105');
+  assert.match(found.fix, /one of/);
+});
+
+test('a genuine enum field with values produces no diagnostics', () => {
+  const { diags } = linkSources('data Task\n  status one of draft | live = draft\n');
+  assert.deepEqual(diags, []);
+});
+
 // --- `retry` is a built-in action, not a navigation target ---
 
 test('`action retry` inside a list\'s error state reports no UX200', () => {
