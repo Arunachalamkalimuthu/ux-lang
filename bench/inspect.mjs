@@ -38,7 +38,18 @@ if (!dir) {
   process.exit(1);
 }
 
-const { programs, diags: parseDiags } = await loadProject(dir);
+// Same shape as bin/ux's own guard around this call: a missing or
+// unreadable directory is the ordinary first-run state (a prompt that
+// produced no `.ux` files at all, or a typo'd path), not a crash — it
+// should name the problem the way every other diagnostic in this project
+// does, not dump a raw Node stack trace with local absolute paths in it.
+let programs, parseDiags;
+try {
+  ({ programs, diags: parseDiags } = await loadProject(dir));
+} catch (error) {
+  process.stdout.write(`Could not read \`${dir}\`: ${error.message}\n  fix:  create a ${dir}/ directory with .ux files\n`);
+  process.exit(1);
+}
 const linked = link(programs);
 const allDiags = [...parseDiags, ...linked.diags];
 
@@ -54,6 +65,9 @@ for (const program of programs) {
 const screens = [...linked.screens.values()].sort((a, b) => a.name.localeCompare(b.name));
 const componentList = [...components.values()].sort((a, b) => a.name.localeCompare(b.name));
 const flowList = [...flows.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+// mirrors linker.js's own constant — see its comment for why `retry` creates no edge
+const BUILTIN_ACTIONS = new Set(['retry']);
 
 const out = [];
 const p = (s = '') => out.push(s);
@@ -85,10 +99,10 @@ for (const screen of screens) {
   if (screen.needs) p(`    needs: ${screen.needs}`);
   p(`    intent: ${screen.intent ? `"${screen.intent}"` : '(MISSING)'}`);
 
-  const kinds = elementKinds(screen.body);
+  const kinds = describeBody(screen.body);
   p(`    contains: ${kinds.length ? kinds.join(', ') : '(nothing)'}`);
 
-  const leadsTo = leadsFrom(screen.name);
+  const leadsTo = leadsFrom(screen);
   p(`    leads to: ${leadsTo.length ? leadsTo.join(', ') : '(nowhere — dead end)'}`);
 }
 
@@ -156,19 +170,22 @@ for (const component of componentList) {
   const usedBy = usersOf(component.name, screens, componentList);
   p();
   p(`  component ${sig}`);
-  p(`    contains: ${elementKinds(component.body).join(', ') || '(nothing)'}`);
+  p(`    contains: ${describeBody(component.body).join(', ') || '(nothing)'}`);
   p(`    used by: ${usedBy.length ? usedBy.join(', ') : '(nowhere — declared but never used)'}`);
 }
 
 // ---------------------------------------------------------------- graph
 
 p();
-p('NAVIGATION GRAPH');
+p('NAVIGATION GRAPH  (a target marked * is reachable only through a conditional if/else branch — see SCREENS above for which condition)');
 rule();
 const width = Math.max(0, ...screens.map(s => s.name.length));
 for (const screen of screens) {
-  const targets = [...new Set(linked.edges.filter(e => e.from === screen.name).map(e => e.to))].sort();
-  p(`  ${screen.name.padEnd(width)} -> ${targets.length ? targets.join(' | ') : '(nowhere)'}`);
+  const edges = resolvedEdges(screen);
+  const targetNames = [...new Set(edges.map(e => e.to))].sort();
+  const rendered = targetNames.map(name =>
+    edges.filter(e => e.to === name).every(e => e.note) ? `${name}*` : name);
+  p(`  ${screen.name.padEnd(width)} -> ${rendered.length ? rendered.join(' | ') : '(nowhere)'}`);
 }
 
 process.stdout.write(out.join('\n') + '\n');
@@ -177,13 +194,76 @@ process.stdout.write(out.join('\n') + '\n');
 // helpers — local, read-only tree walkers over the parsed AST. These
 // duplicate small pieces of src/linker.js's private walkers on purpose:
 // this file only reads `screen.body` / `component.body`, `flow.steps`,
-// and `linked.edges` from the existing modules, and never reaches into
-// their internals.
+// and `linked.screens` from the existing modules, and never reaches into
+// their internals or modifies them. Navigation edges are walked and
+// resolved locally (not read from `linked.edges`) specifically to keep
+// each edge's enclosing `if`/`else` condition, which the linker's own
+// edge model does not track — see `resolvedEdges` below.
 
-function leadsFrom(screenName) {
-  return linked.edges
-    .filter(e => e.from === screenName)
-    .map(e => `${e.to} (via ${e.via})`);
+// A screen's own navigation targets, walked directly from its body rather
+// than read off `linked.edges` — the linker's edge model deliberately
+// tracks no conditionality (see src/linker.js: that's not its job, and
+// finding 2 of the Task 12 review is explicit that this file must not
+// change that), so an edge that only exists inside an `if`/`else` branch
+// looked identical there to an unconditional one. A cold reader of
+// `examples/shop` read only this line and concluded "Add to cart" was
+// reachable from any product page; it only exists `if product.stock > 0`,
+// and the `else` branch offers no action at all. This walk carries the
+// enclosing condition(s) alongside each target so that reading is no
+// longer available.
+function* navigationTargetsWithConditions(elements, context = []) {
+  for (const el of elements) {
+    if (el.kind === 'Action') yield { target: el.target, via: el.label ?? 'action', context };
+    if (el.kind === 'Tabs') yield { target: el.target, via: 'tabs', context };
+    if (el.kind === 'List') {
+      if (el.tap) yield { target: el.tap, via: 'tap', context };
+      for (const [state, value] of Object.entries(el.states)) {
+        if (value?.action?.target) yield { target: value.action.target, via: `${state} state`, context };
+      }
+    }
+    if (el.kind === 'Form' && el.submit?.target) {
+      yield { target: el.submit.target, via: 'submit', context };
+    }
+    if (el.kind === 'Group') yield* navigationTargetsWithConditions(el.body, context);
+    if (el.kind === 'If') {
+      yield* navigationTargetsWithConditions(el.then, [...context, el.cond]);
+      if (el.otherwise.length) {
+        yield* navigationTargetsWithConditions(el.otherwise, [...context, `NOT (${el.cond})`]);
+      }
+    }
+  }
+}
+
+// Resolves each raw navigation target to the screen(s) it actually leads
+// to — following a `flow` target through to its own `go` steps, and
+// dropping built-in actions, the same way linker.js's own edge-builder
+// does (see `link()`'s main loop) — while keeping the conditional context
+// each target carried on the way in.
+function resolvedEdges(screen) {
+  const edges = [];
+  for (const { target, via, context } of navigationTargetsWithConditions(screen.body)) {
+    if (!target || BUILTIN_ACTIONS.has(target.name)) continue;
+    const note = context.length ? `only if ${context.join(' and ')}` : null;
+    if (linked.screens.has(target.name)) {
+      edges.push({ to: target.name, via, note });
+      continue;
+    }
+    if (flows.has(target.name)) {
+      for (const exit of flowExits(flows.get(target.name))) {
+        edges.push({ to: exit, via: `flow ${target.name}`, note });
+      }
+      continue;
+    }
+    // Doesn't resolve to a screen or a flow — the project isn't parsing
+    // clean (this is what `ux check` reports as UX200). Show it anyway,
+    // labeled, rather than silently dropping a target that doesn't exist.
+    edges.push({ to: `${target.name} (undeclared)`, via, note });
+  }
+  return edges;
+}
+
+function leadsFrom(screen) {
+  return resolvedEdges(screen).map(e => `${e.to} (via ${e.via})${e.note ? ` [${e.note}]` : ''}`);
 }
 
 function targetStr(target) {
@@ -191,17 +271,29 @@ function targetStr(target) {
   return target.args.length ? `${target.name}(${target.args.join(', ')})` : target.name;
 }
 
-function elementKinds(elements) {
-  const seen = new Set();
-  walk(elements);
-  return [...seen];
-  function walk(els) {
-    for (const el of els) {
-      seen.add(el.kind.toLowerCase());
-      if (el.kind === 'Group') walk(el.body);
-      if (el.kind === 'If') { walk(el.then); walk(el.otherwise); }
+// Describes a body's elements, expanding `if`/`else` inline instead of
+// flattening it to a bare "if" kind — a reviewer reading only this line
+// mistook a conditional "Add to cart" action for an unconditional one
+// (finding 2, Task 12 review): the old version listed "if" and "action" as
+// two independent, equally-weighted facts about the screen, with no way to
+// tell the action *was* the if's then-branch. This makes that structure
+// literal in the text: `if COND: then-contents / else: else-contents`.
+// Deduped through a Set — screens with several plain `show`s still render
+// as one `show`, but two different `if` conditions stay distinct entries.
+function describeBody(elements) {
+  const parts = [];
+  for (const el of elements) {
+    if (el.kind === 'Group') { parts.push('group', ...describeBody(el.body)); continue; }
+    if (el.kind === 'If') {
+      const then = describeBody(el.then).join(', ') || '(nothing)';
+      let entry = `if ${el.cond}: ${then}`;
+      if (el.otherwise.length) entry += ` / else: ${describeBody(el.otherwise).join(', ') || '(nothing)'}`;
+      parts.push(entry);
+      continue;
     }
+    parts.push(el.kind.toLowerCase());
   }
+  return [...new Set(parts)];
 }
 
 function* formsIn(elements) {
@@ -263,18 +355,22 @@ function countLists(screenList, componentListArg) {
 // The specific check Task 11 shows a clean parse can hide: a form whose
 // field list has the same name more than once. It is exactly what
 // happens when a placeholder word (`field`) — or any other word — gets
-// copied on every line instead of the real field name. Since Task 11,
-// UX206 catches the case where that repeated name isn't a real field on
-// the data type at all; this catches the shape of the bug directly, so it
-// still flags a repeated name even on the unlucky day it happens to match
-// a real field.
+// copied on every line instead of the real field name. `UX108` (src/check.js)
+// now catches exact duplicates at the language level; this warning stays
+// for the same reason it existed before UX108 landed — as a redundant,
+// human-readable signal — and normalises name/whitespace (`Field` vs
+// `field`, a trailing space) so a near-miss UX108's exact-match doesn't
+// also slip past this warning.
 function formWarnings(form) {
   const warnings = [];
   const counts = new Map();
-  for (const field of form.fields) counts.set(field.name, (counts.get(field.name) ?? 0) + 1);
+  for (const field of form.fields) {
+    const key = field.name.trim().toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
   for (const [name, count] of counts) {
     if (count > 1) {
-      warnings.push(`field \`${name}\` is listed ${count} times — likely a placeholder word copied on every line, not ${count} distinct fields`);
+      warnings.push(`field \`${name}\` is listed ${count} times (case/whitespace-insensitive) — likely a placeholder word copied on every line, not ${count} distinct fields`);
     }
   }
   return warnings;

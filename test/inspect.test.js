@@ -86,3 +86,31 @@ test('inspect.mjs exits 1 with a usage message when no directory is given', asyn
     },
   );
 });
+
+test('inspect.mjs exits 1 with a named fix on a nonexistent directory, not a raw stack trace', async () => {
+  // Task 12 review, finding 1: this used to throw an unhandled ENOENT with
+  // a full Node stack and local absolute paths. bin/ux already solves this
+  // exact case around the same loadProject() call — reuse that shape.
+  await assert.rejects(
+    run('node', [INSPECT, '/definitely-not-a-real-directory-xyz']),
+    err => {
+      assert.equal(err.code, 1);
+      assert.match(err.stdout, /Could not read/);
+      assert.match(err.stdout, /fix:/);
+      assert.doesNotMatch(err.stderr, /at async/); // no stack trace leaked to stderr
+      return true;
+    },
+  );
+});
+
+test('inspect.mjs marks an action inside `if`/`else` as conditional, in both `leads to` and `contains`', async () => {
+  // Task 12 review, finding 2: a reviewer reading only inspect.mjs's output
+  // for examples/shop concluded "Add to cart" was reachable from any
+  // product page. It isn't — it's inside `if product.stock > 0`, and the
+  // `else` branch offers no action at all. Pin the fix against shop
+  // directly, since that's the exact project the mistake was made against.
+  const { stdout } = await run('node', [INSPECT, `${EXAMPLES}shop/ux`]);
+  assert.match(stdout, /if product\.stock > 0: action \/ else: text/);
+  assert.match(stdout, /Cart \(via flow addToCart\) \[only if product\.stock > 0\]/);
+  assert.match(stdout, /ProductDetail\s+->.*Cart\*/);
+});

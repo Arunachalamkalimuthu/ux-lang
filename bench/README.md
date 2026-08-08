@@ -49,6 +49,29 @@ silent.
   — it doesn't modify the project it inspects.
 - `README.md` — this file.
 
+## Known gap: prompts 6 and 9 touch a construct the language doesn't have
+
+Prompts 6 ("search jobs, …") and 9 ("search people, …") both ask for a list
+filtered by a value the user just typed on that same screen. The language
+has no way to express that — a `list`'s `where` clause cannot reference an
+input the user entered; the only thing that parses is a tautology like
+`list Job where title is title` next to a flow that does nothing. Nothing
+in `ux check` catches that this is meaningless rather than merely unusual.
+This is a real, tracked expressiveness gap (`docs/superpowers/specs/2026-08-08-ux-format-design.md`
+§10), not something v1 is meant to solve — a query-parameterization
+construct is a language design decision, not a benchmark fix, and this
+benchmark exists precisely to surface candidates like it before guessing at
+a design.
+
+Keep both prompts in the corpus — surfacing the gap is the point — but when
+scoring a run against them: if a model writes a tautological `where` (or
+otherwise can't express "filtered by what I just typed"), that is scored as
+a **language** failure, not a model failure, the same as any other run.
+Don't silently drop these two prompts from the parse-rate denominator, and
+don't count a tautological pass as evidence the language handles search —
+it doesn't, and `inspect.mjs`'s `LISTS` section will show you the `where:`
+clause verbatim so a self-referential filter is easy to spot on sight.
+
 ## Procedure
 
 For each of the 20 prompts in `prompts.md`, in a fresh session with no other

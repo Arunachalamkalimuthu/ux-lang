@@ -83,3 +83,55 @@ test('data and screen sharing a name in one file reports UX107', () => {
   const src = 'data Task\n  title text\nscreen Task\n  intent "x"\n  text "hi"\n';
   assert.ok(codes(src).includes('UX107'));
 });
+
+test('a form repeating a field name reports UX108', () => {
+  const src = [
+    'data Expense', '  amount money', '  note text',
+    'screen A', '  intent "x"',
+    '  form Expense',
+    '    amount required',
+    '    amount required',
+    '    submit "Save" -> A',
+  ].join('\n');
+  const found = codes(src);
+  assert.ok(found.includes('UX108'));
+});
+
+test('the UX108 fix names the fields already listed', () => {
+  const src = [
+    'data Expense', '  amount money', '  note text',
+    'screen A', '  intent "x"',
+    '  form Expense',
+    '    amount required',
+    '    amount required',
+    '    submit "Save" -> A',
+  ].join('\n');
+  const { ast } = parse(src, 'a.ux');
+  const dup = check(ast).find(d => d.code === 'UX108');
+  assert.match(dup.fix, /amount/);
+});
+
+test('a form listing each field once emits no UX108 — the regression that matters most', () => {
+  const src = [
+    'data Expense', '  amount money', '  note text',
+    'screen A', '  intent "x"',
+    '  form Expense',
+    '    amount required',
+    '    note',
+    '    submit "Save" -> A',
+  ].join('\n');
+  assert.ok(!codes(src).includes('UX108'));
+});
+
+test('a form nested inside a group still gets its fields checked for UX108', () => {
+  const src = [
+    'data Expense', '  amount money',
+    'screen A', '  intent "x"',
+    '  group "Section"',
+    '    form Expense',
+    '      amount required',
+    '      amount required',
+    '      submit "Save" -> A',
+  ].join('\n');
+  assert.ok(codes(src).includes('UX108'));
+});

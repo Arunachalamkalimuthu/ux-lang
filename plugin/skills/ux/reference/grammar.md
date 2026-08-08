@@ -192,6 +192,7 @@ Runs on each file independently, before any cross-file linking:
 - A screen with no `intent`, or no body content (`UX100`, `UX101`).
 - A `list` missing `empty`, `loading`, or `error` (`UX102`–`UX104`).
 - The same name declared twice **within one file** (`UX107`).
+- A `form` listing the same field name more than once (`UX108`).
 
 ### The linker (whole project)
 
@@ -244,6 +245,7 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX105 | a `data` field's type is neither a primitive, an inline enum, nor a declared `data` name (linker, project-wide) |
 | UX106 | a `list` or `form` names a `data` type that was never declared anywhere in the project (linker, project-wide) |
 | UX107 | the same name is declared twice within one file |
+| UX108 | a `form` lists the same field name more than once |
 | UX200 | a navigation target (`-> Name`, from a screen or from a flow's `go`) does not exist |
 | UX201 | a screen is unreachable — nothing links to it |
 | UX202 | a screen has no way out (a self-loop or `action retry` alone does not count) |
