@@ -5,6 +5,6 @@
   "license": "Apache-2.0",
   "type": "module",
   "bin": { "ux": "./bin/ux" },
-  "scripts": { "test": "node --test test/lexer.test.js" },
+  "scripts": { "test": "node --test \"test/*.test.js\"" },
   "engines": { "node": ">=20" }
 }
