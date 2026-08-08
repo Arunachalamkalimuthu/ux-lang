@@ -31,11 +31,11 @@ export function check(ast) {
 
 function checkData(decl, dataNames, file, diags) {
   for (const field of decl.fields) {
-    if (field.type === 'enum') continue;
+    if (field.type === 'enum' && Array.isArray(field.enum)) continue;
     if (PRIMITIVE_TYPES.has(field.type) || dataNames.has(field.type)) continue;
     diags.push(diag('UX105', file, field.line,
       `\`${field.type}\` is not a known type.`,
-      `use a primitive (${[...PRIMITIVE_TYPES].slice(0, 5).join(', ')}, …) or declare \`data ${field.type}\``));
+      `use a primitive (${[...PRIMITIVE_TYPES].slice(0, 5).join(', ')}, …), declare \`data ${field.type}\`, or use \`one of a | b\` for an enum`));
   }
 }
 
