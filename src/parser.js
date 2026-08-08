@@ -355,7 +355,13 @@ function parseStep(node, file, diags) {
           '`set` needs a value.', 'write:  set task.done = true'));
         return null;
       }
-      return { kind: 'Set', target: rest.slice(0, eq).trim(), value: rest.slice(eq + 1).trim(), line: node.line };
+      const value = rest.slice(eq + 1).trim();
+      if (value.startsWith('=')) {
+        diags.push(diag('UX017', file, node.line,
+          '`set` uses a single `=`, not `==`.', 'write:  set task.done = true'));
+        return null;
+      }
+      return { kind: 'Set', target: rest.slice(0, eq).trim(), value, line: node.line };
     }
     case 'call': {
       const target = parseTarget(rest) ?? parseDottedCall(rest);
@@ -364,7 +370,17 @@ function parseStep(node, file, diags) {
         const [branchName] = words(child.text);
         if (branchName !== 'ok' && branchName !== 'fail') continue;
         const body = splitArrow(child.text).right;
-        if (!body) continue;
+        if (!body) {
+          diags.push(diag('UX019', file, child.line,
+            `\`${branchName}\` needs \`->\` and a step.`,
+            `write:  ${branchName} -> toast "Done"`));
+          continue;
+        }
+        if (child.children.length > 0) {
+          diags.push(diag('UX018', file, child.line,
+            'A step inside an `ok`/`fail` branch cannot have its own branches.',
+            'move these steps into their own `flow` and call it from here'));
+        }
         const step = parseStep({ ...child, text: body, children: [] }, file, diags);
         if (step) branches[branchName].push(step);
       }
