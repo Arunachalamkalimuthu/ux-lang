@@ -17,7 +17,7 @@ rules keep generated code traceable back to its source.
 | `action "L" -> S` | a button or link navigating to `S`'s route |
 | `action verb` / `action verb(arg)` | a button calling flow `verb`, passing any arguments through |
 | `action retry` | a button re-running the query for the `list`/state it's in — no flow to generate, it is built in |
-| `form D` | a form component with fields from `data D` |
+| `form D` | a form component with fields from `data D`. Each field's actual requiredness comes from `data D`'s own declaration; a modifier written on the form field itself (e.g. `title required`) is advisory for the generator, not a second source of truth. |
 | `flow name(x)` | a function in `flows/name.ts` |
 | `component N` | a shared component in `components/N.tsx` |
 

@@ -64,9 +64,22 @@ test('parses a form with a submit target', () => {
     'a.ux');
   const form = ast.decls[0].body[0];
   assert.equal(form.data, 'Task');
-  assert.deepEqual(form.fields, ['title', 'due']);
+  assert.deepEqual(form.fields.map(f => ({ name: f.name, modifiers: f.modifiers })), [
+    { name: 'title', modifiers: ['required'] },
+    { name: 'due', modifiers: [] },
+  ]);
   assert.equal(form.submit.label, 'Create');
   assert.deepEqual(form.submit.target, { name: 'create', args: ['task'] });
+});
+
+test('a form field\'s modifiers are kept, not discarded', () => {
+  const { ast } = parse(
+    'screen New\n  intent "x"\n  form Task\n    title required\n    due\n', 'a.ux');
+  const form = ast.decls[0].body[0];
+  assert.equal(form.fields[0].name, 'title');
+  assert.ok(form.fields[0].modifiers.includes('required'));
+  assert.equal(form.fields[1].name, 'due');
+  assert.deepEqual(form.fields[1].modifiers, []);
 });
 
 test('parses group and if/else nesting', () => {
@@ -135,7 +148,7 @@ test('form field named "submitted" is kept, and a real submit still parses', () 
     'a.ux');
   assert.equal(diags.length, 0);
   const form = ast.decls[0].body[0];
-  assert.deepEqual(form.fields, ['submitted']);
+  assert.deepEqual(form.fields.map(f => f.name), ['submitted']);
   assert.equal(form.submit.label, 'Create');
   assert.deepEqual(form.submit.target, { name: 'create', args: ['task'] });
 });

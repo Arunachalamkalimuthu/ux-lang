@@ -34,10 +34,13 @@ export function link(programs) {
     checkFieldTypes(decl, dataTypes, diags);
   }
 
+  const dataByName = new Map(dataDecls.map(decl => [decl.name, decl]));
+
   const edges = [];
 
   for (const screen of screens.values()) {
     checkListDataTypes(screen.body, dataTypes, screen.file, diags);
+    checkFormDataTypes(screen.body, dataTypes, dataByName, screen.file, diags);
 
     for (const { target, via } of navigationTargets(screen)) {
       if (!target) continue;
@@ -83,9 +86,10 @@ export function link(programs) {
     }
   }
 
-  // Components can `use` other components too, and can hold lists of their own.
+  // Components can `use` other components too, and can hold lists and forms of their own.
   for (const component of components.values()) {
     checkListDataTypes(component.body, dataTypes, component.file, diags);
+    checkFormDataTypes(component.body, dataTypes, dataByName, component.file, diags);
 
     for (const use of componentUses(component)) {
       if (components.has(use.component)) continue;
@@ -211,6 +215,80 @@ function* listElements(elements) {
     if (element.kind === 'Group') yield* listElements(element.body);
     if (element.kind === 'If') { yield* listElements(element.then); yield* listElements(element.otherwise); }
   }
+}
+
+// A `form`'s data type resolves across the whole project the same way a
+// `list`'s does (UX106) — and, once resolved, each field the form lists must
+// actually exist on that `data` (UX206). Forms were never wired into either
+// check before this: `parseForm` happily kept any first word as a field
+// name, so a form could list fields that don't exist on its data type and
+// nothing ever said so.
+function checkFormDataTypes(elements, dataTypes, dataByName, file, diags) {
+  for (const form of formElements(elements)) {
+    if (!form.data) continue;
+    if (!dataTypes.has(form.data)) {
+      diags.push(diag('UX106', file, form.line,
+        `\`${form.data}\` is not a declared data type.`,
+        `data ${form.data}`));
+      continue;
+    }
+
+    const decl = dataByName.get(form.data);
+    const declaredNames = decl.fields.map(f => f.name);
+    for (const field of form.fields) {
+      if (declaredNames.includes(field.name)) continue;
+      diags.push(diag('UX206', file, field.line ?? form.line,
+        `\`${form.data}\` has no field \`${field.name}\`.`,
+        formFieldFix(field.name, form.data, declaredNames)));
+    }
+  }
+}
+
+function* formElements(elements) {
+  for (const element of elements) {
+    if (element.kind === 'Form') yield element;
+    if (element.kind === 'Group') yield* formElements(element.body);
+    if (element.kind === 'If') { yield* formElements(element.then); yield* formElements(element.otherwise); }
+  }
+}
+
+// Prefer a close-spelling suggestion when one is obviously the intended
+// field; otherwise the more useful fix is just showing what is actually
+// there, since the writer usually needs to see the real names, not guess.
+function formFieldFix(name, dataName, declaredNames) {
+  const close = closestName(name, declaredNames);
+  const available = declaredNames.length
+    ? `\`${dataName}\` has: ${declaredNames.join(', ')}`
+    : `\`${dataName}\` declares no fields`;
+  return close ? `did you mean \`${close}\`? ${available}` : available;
+}
+
+function closestName(name, candidates) {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const candidate of candidates) {
+    const distance = levenshtein(name, candidate);
+    if (distance < bestDistance) { bestDistance = distance; best = candidate; }
+  }
+  // "Obviously similar": a small edit distance relative to the word's own
+  // length — enough to catch a typo, not enough to suggest an unrelated field.
+  return best && bestDistance <= 2 && bestDistance < best.length ? best : null;
+}
+
+function levenshtein(a, b) {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const dp = Array.from({ length: rows }, () => new Array(cols).fill(0));
+  for (let i = 0; i < rows; i++) dp[i][0] = i;
+  for (let j = 0; j < cols; j++) dp[0][j] = j;
+  for (let i = 1; i < rows; i++) {
+    for (let j = 1; j < cols; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
 }
 
 function* componentUses(owner) {

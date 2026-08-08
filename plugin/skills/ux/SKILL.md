@@ -46,12 +46,13 @@ screen Name(param)
   action verbName(arg)            # bare verb, with args
   use ComponentName(arg)
 
-  form DataName
-    field required
+  form DataName            # fields are real names from `data DataName`, not the word "field"
+    title required
+    due
     submit "Label" -> flowName(arg)
 
   list DataName where cond
-    sort by field
+    sort by fieldName
     row fieldA, fieldB
     tap -> Screen(arg)
     empty   "…"  action "…" -> Screen    # REQUIRED
@@ -78,11 +79,12 @@ file id secret`
 - Every `list` needs `empty`, `loading`, and `error`. This is the rule that
   matters most — building only the happy path is the usual failure, and here
   it will not check.
-- Every screen needs a way out. A screen with no outgoing `action` (to
-  another screen) is a user stuck, and `ux check` reports it. `retry` is
-  built in and creates no navigation edge, so an `error` state that only
-  offers `action retry` does not, by itself, satisfy this rule — the screen
-  still needs a real way out somewhere in its body.
+- Every screen needs a way out. `action`, `tabs`, a list's `tap` or state
+  actions, and a `form`'s `submit` all count as a way out — a screen with
+  none of these leading elsewhere is a user stuck, and `ux check` reports
+  it. `retry` is built in and creates no navigation edge, so an `error`
+  state that only offers `action retry` does not, by itself, satisfy this
+  rule.
 - Navigation targets must exist. A `-> Checkout` with no `screen Checkout`
   fails.
 

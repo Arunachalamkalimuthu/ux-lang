@@ -182,6 +182,91 @@ test('a screen whose only edge is a self-loop is flagged UX202', () => {
   assert.ok(diags.some(d => d.code === 'UX202' && d.message.includes('Loop')));
 });
 
+// --- UX206: a form's fields resolve against its declared data type ---
+
+test('a form listing a field its data type does not declare emits UX206 naming available fields', () => {
+  const data = 'data Task\n  title text\n  due date\n';
+  const src = [
+    'screen New', '  at /', '  intent "x"',
+    '  form Task',
+    '    description text',
+    '    submit "Create" -> Home',
+    'screen Home', '  intent "x"',
+    '  action "Back" -> New',
+  ].join('\n');
+
+  const { diags } = linkSources(data, src);
+  const found = diags.find(d => d.code === 'UX206');
+  assert.ok(found, 'expected a UX206 diagnostic');
+  assert.match(found.message, /description/);
+  assert.match(found.fix, /title/);
+  assert.match(found.fix, /due/);
+});
+
+test('a form listing a field with an obvious typo suggests the real name', () => {
+  const data = 'data Task\n  title text\n';
+  const src = [
+    'screen New', '  at /', '  intent "x"',
+    '  form Task',
+    '    titel text',
+    '    submit "Create" -> Home',
+    'screen Home', '  intent "x"',
+    '  action "Back" -> New',
+  ].join('\n');
+
+  const { diags } = linkSources(data, src);
+  const found = diags.find(d => d.code === 'UX206');
+  assert.ok(found);
+  assert.match(found.fix, /did you mean `title`/);
+});
+
+test('a form listing only real fields emits nothing — the regression that matters most', () => {
+  const data = 'data Task\n  title text\n  due date\n';
+  const src = [
+    'screen New', '  at /', '  intent "x"',
+    '  form Task',
+    '    title required',
+    '    due',
+    '    submit "Create" -> Home',
+    'screen Home', '  intent "x"',
+    '  action "Back" -> New',
+  ].join('\n');
+
+  const { diags } = linkSources(data, src);
+  assert.ok(!diags.some(d => d.code === 'UX206'));
+});
+
+test('a form whose data type is undeclared reports UX106, not UX206', () => {
+  const src = [
+    'screen New', '  at /', '  intent "x"',
+    '  form Ghost',
+    '    title text',
+    '    submit "Create" -> Home',
+    'screen Home', '  intent "x"',
+    '  action "Back" -> New',
+  ].join('\n');
+
+  const { diags } = linkSources(src);
+  assert.ok(diags.some(d => d.code === 'UX106' && d.message.includes('Ghost')));
+  assert.ok(!diags.some(d => d.code === 'UX206'));
+});
+
+test('a form nested inside group/if still gets its fields checked', () => {
+  const data = 'data Task\n  title text\n';
+  const src = [
+    'screen New', '  at /', '  intent "x"',
+    '  if editing',
+    '    form Task',
+    '      bogus text',
+    '      submit "Create" -> Home',
+    'screen Home', '  intent "x"',
+    '  action "Back" -> New',
+  ].join('\n');
+
+  const { diags } = linkSources(data, src);
+  assert.ok(diags.some(d => d.code === 'UX206' && d.message.includes('bogus')));
+});
+
 test('regression: valid project mixing screen targets and flow targets yields an empty diagnostics array', () => {
   const home = 'screen Home\n  at /\n  intent "x"\n  action "Done" -> completeTask\n';
   const other = 'screen Other\n  intent "x"\n  action "Back" -> Home\n';

@@ -282,7 +282,13 @@ function parseForm(node, rest, file, diags) {
       form.submit = { label: str ? str.value : null, target: right ? parseTarget(right) : null };
       continue;
     }
-    form.fields.push(words(child.text)[0]);
+    // `title required` -> { name: 'title', modifiers: ['required'] }. The
+    // modifiers are kept, not enforced here — a form field's actual
+    // requiredness comes from `data`'s own declaration; these are advisory
+    // for the generator. Dropping them silently was the bug: nothing should
+    // vanish a value the author wrote.
+    const [name, ...modifiers] = words(child.text);
+    form.fields.push({ name, modifiers, line: child.line });
   }
   return form;
 }

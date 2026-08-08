@@ -203,7 +203,8 @@ Reads every file and checks what no single file can know:
 - **Argument-count mismatches** — `Detail(task, extra)` where `screen Detail(task)` takes one argument (`UX203`). This checks arity only — it does not check that the argument's *type* matches what the target screen expects.
 - **Unknown components** — `use Thing(...)` with no `component Thing` (`UX204`)
 - **Cross-file name collisions** — the same `screen`, `flow`, or `component` name declared in two different files (`UX205`)
-- **Unresolvable field and list types** — a `data` field whose type is neither a primitive nor another declared `data` (`UX105`); a `list` naming a `data` type that was never declared (`UX106`)
+- **Unresolvable field, list, and form types** — a `data` field whose type is neither a primitive nor another declared `data` (`UX105`); a `list` or `form` naming a `data` type that was never declared (`UX106`)
+- **Unresolvable form fields** — a `form`'s field that its resolved `data` type does not declare (`UX206`) — the fix names the real fields, and suggests a specific one when the field looks like a typo of it
 
 Half of these are UX defects rather than code defects. A dead-end screen is not a crash; it is a user stuck, and normally nothing catches it until someone gets stuck.
 
@@ -241,7 +242,7 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX103 | a `list` has no `loading` case |
 | UX104 | a `list` has no `error` case |
 | UX105 | a `data` field's type is neither a primitive, an inline enum, nor a declared `data` name (linker, project-wide) |
-| UX106 | a `list` names a `data` type that was never declared anywhere in the project (linker, project-wide) |
+| UX106 | a `list` or `form` names a `data` type that was never declared anywhere in the project (linker, project-wide) |
 | UX107 | the same name is declared twice within one file |
 | UX200 | a navigation target (`-> Name`, from a screen or from a flow's `go`) does not exist |
 | UX201 | a screen is unreachable — nothing links to it |
@@ -249,3 +250,4 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX203 | a navigation target expects a different number of arguments than were passed |
 | UX204 | `use` names a component that was never declared |
 | UX205 | the same `screen`, `flow`, or `component` name is declared in two different files |
+| UX206 | a `form` lists a field its resolved `data` type does not declare (linker, project-wide) |
