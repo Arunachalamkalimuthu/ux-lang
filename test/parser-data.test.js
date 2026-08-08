@@ -46,3 +46,34 @@ test('unknown top-level keyword reports UX010', () => {
   assert.equal(diags[0].code, 'UX010');
   assert.match(diags[0].fix, /app|data|screen|component|flow/);
 });
+
+test('[text]? and [text?] parse identically', () => {
+  const src1 = 'data A\n  tags [text]?\n';
+  const src2 = 'data B\n  tags [text?]\n';
+  const result1 = parse(src1, 'a.ux');
+  const result2 = parse(src2, 'b.ux');
+  const field1 = result1.ast.decls[0].fields[0];
+  const field2 = result2.ast.decls[0].fields[0];
+  assert.equal(field1.type, field2.type);
+  assert.equal(field1.list, field2.list);
+  assert.equal(field1.optional, field2.optional);
+  assert.equal(field1.type, 'text');
+  assert.equal(field1.list, true);
+  assert.equal(field1.optional, true);
+});
+
+test('field omitting type but with modifier reports UX012', () => {
+  const { ast, diags } = parse('data Thing\n  title required\n', 'a.ux');
+  assert.equal(diags.length, 1);
+  assert.equal(diags[0].code, 'UX012');
+  assert.equal(diags[0].line, 2);
+  assert.equal(ast.decls[0].fields.length, 0);
+});
+
+test('valid field with type and required modifier parses correctly', () => {
+  const { ast, diags } = parse('data Thing\n  title text required\n', 'a.ux');
+  assert.equal(diags.length, 0);
+  const field = ast.decls[0].fields[0];
+  assert.equal(field.type, 'text');
+  assert.equal(field.required, true);
+});

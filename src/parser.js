@@ -7,6 +7,7 @@ export const PRIMITIVE_TYPES = new Set([
   'money', 'email', 'url', 'phone', 'image', 'file', 'id', 'secret',
 ]);
 
+const FIELD_MODIFIERS = new Set(['required']);
 const TOP_LEVEL = ['app', 'site', 'data', 'screen', 'component', 'flow'];
 
 export function parse(source, file) {
@@ -89,13 +90,27 @@ function parseField(node, file, diags) {
     return null;
   }
 
-  if (type.startsWith('[') && type.endsWith(']')) {
-    field.list = true;
-    type = type.slice(1, -1);
+  if (FIELD_MODIFIERS.has(type)) {
+    diags.push(diag('UX012', file, node.line,
+      `Field \`${name}\` has no type.`,
+      `write:  ${name} text`));
+    return null;
   }
-  if (type.endsWith('?')) {
-    field.optional = true;
-    type = type.slice(0, -1);
+
+  // Strip type markers in a loop to handle any order (e.g., [text]? or [text?])
+  let changed = true;
+  while (changed) {
+    changed = false;
+    if (type.startsWith('[') && type.endsWith(']')) {
+      field.list = true;
+      type = type.slice(1, -1);
+      changed = true;
+    }
+    if (type.endsWith('?')) {
+      field.optional = true;
+      type = type.slice(0, -1);
+      changed = true;
+    }
   }
   field.type = type;
 
