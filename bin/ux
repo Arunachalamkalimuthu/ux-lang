@@ -14,9 +14,27 @@ import { hasErrors, ERROR } from '../src/diagnostics.js';
 // that each finish before the next starts), so the unsorted list jumps
 // around by line and even by file. Sort by file, then line, then code, so
 // a human reads a project top to bottom instead of in pass order.
+//
+// Lexical diagnostics (UX001–UX004) get a phase ahead of everything else.
+// This lexer resets its string/indent state at each line boundary, so a
+// lexical error corrupts exactly one line — every other diagnostic in the
+// run is derived from a cleanly parsed line and is exactly as trustworthy
+// as normal, including ones for entirely unrelated files (the blocker-2
+// repro's `UX201` on `other.ux`, which has no lexical error of its own).
+// Suppressing the rest of the run on a lexical error would silence real,
+// independent findings in every other file — on a twenty-file project, one
+// stray quote would hide every other error, silently. So nothing is
+// suppressed; lexical errors are just guaranteed to be read first, because
+// they're the ones whose *derived* diagnostics (a vanished `->`, a
+// swallowed comment) may be noise until they're fixed.
+const LEXICAL_CODES = new Set(['UX001', 'UX002', 'UX003', 'UX004']);
+
 function sortDiagnostics(diags) {
-  return [...diags].sort((a, b) =>
-    a.file.localeCompare(b.file) || a.line - b.line || a.code.localeCompare(b.code));
+  return [...diags].sort((a, b) => {
+    const phase = Number(LEXICAL_CODES.has(b.code)) - Number(LEXICAL_CODES.has(a.code));
+    if (phase !== 0) return phase;
+    return a.file.localeCompare(b.file) || a.line - b.line || a.code.localeCompare(b.code);
+  });
 }
 
 const USAGE = `ux — check and map .ux projects
@@ -58,7 +76,7 @@ try {
 // from the caller's side it is the same mistake: there is nothing here to
 // check yet.
 if (command === 'check' && programs.length === 0) {
-  process.stdout.write(`\`${dir}\` has no .ux files.\n  fix:  create a ${dir}/ directory with .ux files\n`);
+  process.stdout.write(`\`${dir}\` has no .ux files.\n  fix:  write at least one .ux file in ${dir}/\n`);
   process.exit(1);
 }
 
@@ -66,7 +84,11 @@ const linked = link(programs);
 const all = sortDiagnostics([...diags, ...linked.diags]);
 
 if (command === 'check') {
-  process.stdout.write(renderDiagnostics(all) + '\n');
+  const lexicalCount = all.filter(d => LEXICAL_CODES.has(d.code)).length;
+  const banner = lexicalCount > 0
+    ? `${lexicalCount} lexical error(s). Fix these first and re-run — anything below may be derived from a broken line.\n\n`
+    : '';
+  process.stdout.write(banner + renderDiagnostics(all) + '\n');
   process.exit(hasErrors(all) ? 1 : 0);
 }
 

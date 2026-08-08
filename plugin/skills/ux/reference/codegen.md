@@ -33,13 +33,19 @@ rules keep generated code traceable back to its source.
 4. **Styling is yours.** `.ux` says nothing about looks. Follow the project's
    existing design system; if there is none, keep it plain and accessible.
 5. **Regenerate, do not patch.** For a UI change, edit the `.ux`, run
-   `ux check`, then regenerate the affected files.
+   `ux check` (see the note below), then regenerate the affected files.
 
 ## Loop
 
 ```
 edit .ux  ->  ux check ux/  ->  fix diagnostics  ->  generate  ->  run
 ```
+
+Every mention of `ux check`/`ux map` on this page is the same command
+`SKILL.md`'s Workflow section describes: try it as written first, and if
+the shell reports "command not found," fall back to
+`node <path-to-ux-lang-repo>/bin/ux check ux/` (or `... map ux/`) — no
+install needed.
 
 Every diagnostic includes the fix (rendered as `fix:` in `ux check`'s
 output). If `ux check` exits non-zero, do not generate — `ux check` is the

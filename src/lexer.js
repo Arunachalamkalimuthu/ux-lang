@@ -1,15 +1,27 @@
 import { diag } from './diagnostics.js';
 
-// Remove a trailing `#` comment, ignoring `#` inside double-quoted strings.
-function stripComment(text) {
-  let out = '';
+// The one walk that decides what "inside a string" means for a raw line —
+// used both to strip a trailing `#` comment (stop at `#` only when *not*
+// inside a string) and to detect an unterminated string (UX004: still
+// inside a string when the line ends). These two questions must be answered
+// by the same loop, not two loops that can silently drift apart — that
+// drift is exactly how UX004 first shipped broken: a first draft counted
+// `"` characters on the whole raw line, which also counts a `"` that
+// appears *inside a `#` comment* and has nothing to do with an unterminated
+// string, rejecting correct programs like `intent "Land"   # use " to quote`.
+// A `#` reached while already inside a string does *not* end the scan (it's
+// just a character inside the string), so `text "Nothing overdue # ok`
+// (no closing quote) is still correctly flagged: the walk never reaches a
+// point where it's "not in a string" before running off the end of the line.
+function scanLine(text) {
+  let stripped = '';
   let inString = false;
   for (const ch of text) {
     if (ch === '"') inString = !inString;
     if (ch === '#' && !inString) break;
-    out += ch;
+    stripped += ch;
   }
-  return out;
+  return { stripped, unterminated: inString };
 }
 
 export function lex(source, file) {
@@ -26,20 +38,13 @@ export function lex(source, file) {
         'replace each tab with two spaces'));
     }
 
-    // Count `"` on the *raw* line, before comment-stripping — an unmatched
-    // quote is precisely the condition that makes stripComment untrustworthy
-    // (it toggles "in string" per `"` it sees, so an odd count leaves it
-    // stuck "inside a string" for the rest of the line, silently eating a
-    // trailing `#` comment, and leaves everything downstream — indexOutsideString,
-    // splitArrow — with the same wrong idea of where the string ends).
-    const quotes = (raw.match(/"/g) ?? []).length;
-    if (quotes % 2 !== 0) {
+    const { stripped, unterminated } = scanLine(raw.replace(/\t/g, '  '));
+    if (unterminated) {
       diags.push(diag('UX004', file, line,
-        `Line ${line} has an unterminated string (an odd number of \`"\` characters).`,
+        `Line ${line} has an unterminated string (a \`"\` is opened but never closed outside any \`#\` comment).`,
         'close the string with a matching `"`'));
     }
 
-    const stripped = stripComment(raw.replace(/\t/g, '  '));
     const text = stripped.trim();
     if (text === '') return;
 

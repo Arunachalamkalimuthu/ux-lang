@@ -185,7 +185,12 @@ test('check on a `ux/` directory with zero .ux files exits 1, not "No problems f
       assert.equal(err.code, 1);
       assert.doesNotMatch(err.stdout, /No problems found/);
       assert.match(err.stdout, /no \.ux files/);
-      assert.match(err.stdout, /\n {2}fix: {2}create a .+ directory with \.ux files\n/);
+      // The directory demonstrably exists (this test just created it), so
+      // the fix must not tell the user to create it — that was the bug:
+      // reusing the missing-directory message verbatim. It should instead
+      // say to add files to the directory that's already there.
+      assert.doesNotMatch(err.stdout, /fix:\s+create a/);
+      assert.match(err.stdout, /\n {2}fix: {2}write at least one \.ux file in .+\n/);
       return true;
     },
   );
@@ -217,4 +222,35 @@ test('check output is sorted by file, then line, then code, even though the chec
   assert.ok(locations.length >= 3, `expected several diagnostics, got:\n${stdout}`);
   const sorted = [...locations].sort((a, b) => a[0] - b[0] || a[1].localeCompare(b[1]));
   assert.deepEqual(locations, sorted);
+});
+
+// --- Coordinator round 2, item 2: lexical errors sort first and print a banner ---
+
+test('a lexical error (UX004) prints before a UX202 with a lower line number, with a banner above the list', async () => {
+  const dir = await project({
+    'app.ux': 'app Demo\n',
+    // `Stuck` (line 1) has no way out — UX202 — but `Broken` (line 5) has
+    // an unterminated string — UX004. UX202's line (1) is lower than
+    // UX004's line (5), so plain file/line/code order would print UX202
+    // first; the lexical phase must override that.
+    'home.ux': [
+      'screen Stuck',
+      '  at /',
+      '  intent "x"',
+      '  text "no way out"',
+      '  heading "Broken',
+    ].join('\n'),
+  });
+  const { stdout } = await run('node', [CLI, 'check', join(dir, 'ux')]).catch(e => e);
+  assert.match(stdout, /^\d+ lexical error\(s\)\. Fix these first and re-run/m);
+  const codes = [...stdout.matchAll(/\bUX\d{3}\b/g)].map(m => m[0]);
+  assert.ok(codes.includes('UX004') && codes.includes('UX202'));
+  assert.ok(codes.indexOf('UX004') < codes.indexOf('UX202'),
+    `expected UX004 before UX202, got order: ${codes.join(', ')}`);
+});
+
+test('no banner and unchanged ordering when there are no lexical errors', async () => {
+  const dir = await project({ 'home.ux': 'screen Home\n  at /\n  text "no intent"\n' });
+  const { stdout } = await run('node', [CLI, 'check', join(dir, 'ux')]).catch(e => e);
+  assert.doesNotMatch(stdout, /lexical error/);
 });

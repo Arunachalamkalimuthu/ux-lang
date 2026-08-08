@@ -61,6 +61,33 @@ test('balanced strings, including one containing a `#`, do not report UX004', ()
   assert.ok(!diags.some(d => d.code === 'UX004'));
 });
 
+// Regression guard for the false positive the coordinator caught: a `"`
+// inside an actual `#` comment (not inside a string) is not a string at
+// all and must never trip UX004 — the fix, before this, was counting every
+// `"` on the raw line, which also counted comment quotes and rejected
+// correct programs.
+test('a comment containing a `"` does not report UX004', () => {
+  const { diags } = lex('# a comment mentioning the " character\n', 'a.ux');
+  assert.ok(!diags.some(d => d.code === 'UX004'));
+});
+
+test('a trailing comment containing a `"` after a balanced string does not report UX004', () => {
+  const { diags } = lex('intent "Land"   # use " to quote\n', 'a.ux');
+  assert.ok(!diags.some(d => d.code === 'UX004'));
+});
+
+test('a comment quote does not mask a real unterminated string later reported on its own line', () => {
+  const src = [
+    '# a comment mentioning the " character',
+    'intent "Land"   # use " to quote',
+    'heading "My tasks',
+  ].join('\n');
+  const { diags } = lex(src, 'a.ux');
+  const found = diags.filter(d => d.code === 'UX004');
+  assert.equal(found.length, 1);
+  assert.equal(found[0].line, 3);
+});
+
 test('lex rejects tabs with UX001', () => {
   const { diags } = lex('screen A\n\tintent "x"\n', 'a.ux');
   assert.equal(diags[0].code, 'UX001');
