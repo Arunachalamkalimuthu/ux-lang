@@ -57,7 +57,7 @@ has no way to express that — a `list`'s `where` clause cannot reference an
 input the user entered; the only thing that parses is a tautology like
 `list Job where title is title` next to a flow that does nothing. Nothing
 in `ux check` catches that this is meaningless rather than merely unusual.
-This is a real, tracked expressiveness gap (`docs/superpowers/specs/2026-08-08-ux-format-design.md`
+This is a real, tracked expressiveness gap (`docs/format-design.md`
 §10), not something v1 is meant to solve — a query-parameterization
 construct is a language design decision, not a benchmark fix, and this
 benchmark exists precisely to surface candidates like it before guessing at

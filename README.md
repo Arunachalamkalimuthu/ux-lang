@@ -113,8 +113,7 @@ actually means what was asked. Known limitations:
   generator to keep code and `.ux` in sync; nothing in `ux check` verifies
   that it actually did.
 
-- **[Format design](docs/superpowers/specs/2026-08-08-ux-format-design.md)**
-- **[Toolchain plan](docs/superpowers/plans/2026-08-08-ux-toolchain-v1.md)**
+- **[Format design](docs/format-design.md)**
 - **[Adoption benchmark](bench/README.md)**
 
 ## License
