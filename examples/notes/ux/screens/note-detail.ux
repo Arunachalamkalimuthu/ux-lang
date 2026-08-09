@@ -6,3 +6,7 @@ screen NoteDetail(note)
 
   action togglePin(note)
   action "Back" -> AllNotes
+
+component NoteRow(note)
+  show note.title
+  show note.updated

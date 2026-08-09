@@ -120,10 +120,10 @@ NewTask -&gt; Inbox</code></pre>
           </p>
         </div>
         <div>
-          <h3>34 rules, two layers</h3>
+          <h3>34 errors, six warnings</h3>
           <p>
-            One layer asks whether a file is well-formed. The other asks whether the names it references
-            exist anywhere in the project. Half of what they catch are UX defects, not code defects.
+            <code>ux check</code> reports what's wrong and fails the build. <code>ux lint</code> reports what's
+            merely suspect — an unused type, an intent that says nothing — and doesn't.
           </p>
         </div>
       </div>

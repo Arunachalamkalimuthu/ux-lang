@@ -272,3 +272,22 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX204 | `use` names a component that was never declared |
 | UX205 | the same `screen`, `flow`, or `component` name is declared in two different files |
 | UX206 | a `form` lists a field its resolved `data` type does not declare (linker, project-wide) |
+
+## Warnings (`ux lint`)
+
+Everything above is an error: the program is wrong and the build fails. The
+codes below are warnings. They describe a program that parses, links and would
+run — it just probably isn't what you meant. They never affect an exit code
+unless you pass `--strict`, and every one of them has a legitimate exception.
+
+`ux lint` reports only these. `ux check` reports them too, after the errors, so
+you don't have to remember a second command.
+
+| Code | Meaning |
+|---|---|
+| UX300 | a `data` type nothing lists, forms over, or references from another type |
+| UX301 | a `flow` nothing invokes |
+| UX302 | a `component` in its own file that only one screen uses |
+| UX303 | an `intent` that restates the screen's name, is a placeholder, or duplicates another screen's |
+| UX304 | a name that breaks the casing convention — `PascalCase` declarations, `camelCase` fields and flows |
+| UX305 | a `list` with no `tap` and no action in any of its states, so nothing in it can be acted on |

@@ -1,6 +1,7 @@
 import { lex, treeify } from './lexer.js';
 import { diag } from './diagnostics.js';
 import { words, splitArrow, parseTarget, parseString, indexOutsideString } from './parse-line.js';
+import { closestKeyword } from './similar.js';
 
 export const PRIMITIVE_TYPES = new Set([
   'text', 'number', 'int', 'bool', 'date', 'time', 'datetime',
@@ -8,6 +9,19 @@ export const PRIMITIVE_TYPES = new Set([
 ]);
 
 const FIELD_MODIFIERS = new Set(['required']);
+// A wrong keyword is the most common way to get this language wrong, and it is
+// almost always a near-miss rather than an invention — `onTap` for `tap`,
+// `button` for `action`. Design rule R4 wanted these to parse with a warning
+// and normalise; that needs a formatter to canonicalise them, which does not
+// exist yet, and accepting an alias with nothing to rewrite it would leave the
+// alias in the file forever and fragment the language. So it stays an error,
+// but the error names the word the author meant — which is what R4 was
+// actually for: self-correction in one round trip.
+function keywordFix(word, keywords, display = keywords) {
+  const close = closestKeyword(word, keywords);
+  return close ? `did you mean \`${close}\`?` : `use one of: ${display.join(', ')}`;
+}
+
 const TOP_LEVEL = ['app', 'site', 'data', 'screen', 'component', 'flow'];
 
 export function parse(source, file) {
@@ -39,7 +53,7 @@ export function parse(source, file) {
       default:
         diags.push(diag('UX010', file, node.line,
           `\`${keyword}\` is not a top-level keyword.`,
-          `use one of: ${TOP_LEVEL.join(', ')}`));
+          keywordFix(keyword, TOP_LEVEL)));
     }
   }
 
@@ -130,6 +144,9 @@ function parseField(node, file, diags) {
   return field;
 }
 
+const LIST_KEYWORDS = ['sort', 'row', 'tap', 'empty', 'loading', 'error'];
+// `sort` is the keyword the parser matches; `sort by` is how it is written.
+const LIST_DISPLAY = ['sort by', 'row', 'tap', 'empty', 'loading', 'error'];
 const ELEMENT_KEYWORDS = ['heading', 'text', 'show', 'group', 'tabs', 'if', 'action', 'form', 'list', 'use'];
 
 function parseScreen(node, file, diags) {
@@ -257,7 +274,7 @@ function parseElement(node, file, diags) {
     default:
       diags.push(diag('UX013', file, node.line,
         `\`${keyword}\` is not a screen element.`,
-        `use one of: ${ELEMENT_KEYWORDS.join(', ')}`));
+        keywordFix(keyword, ELEMENT_KEYWORDS)));
       return null;
   }
 }
@@ -320,7 +337,7 @@ function parseList(node, rest, file, diags) {
     }
     diags.push(diag('UX013', file, child.line,
       `\`${keyword}\` is not valid inside a list.`,
-      'use one of: sort by, row, tap, empty, loading, error'));
+      keywordFix(keyword, LIST_KEYWORDS, LIST_DISPLAY)));
   }
 
   return list;
@@ -420,7 +437,7 @@ function parseStep(node, file, diags) {
     default:
       diags.push(diag('UX016', file, node.line,
         `\`${keyword}\` is not a flow step.`,
-        `use one of: ${FLOW_KEYWORDS.join(', ')}`));
+        keywordFix(keyword, FLOW_KEYWORDS)));
       return null;
   }
 }

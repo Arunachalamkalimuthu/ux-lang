@@ -1,4 +1,5 @@
 import { diag } from './diagnostics.js';
+import { closestName } from './similar.js';
 import { PRIMITIVE_TYPES } from './parser.js';
 
 // Verbs a screen can send an `action` at that are handled by the runtime, not
@@ -292,33 +293,6 @@ function formFieldFix(name, dataName, declaredNames) {
   return close ? `did you mean \`${close}\`? ${available}` : available;
 }
 
-function closestName(name, candidates) {
-  let best = null;
-  let bestDistance = Infinity;
-  for (const candidate of candidates) {
-    const distance = levenshtein(name, candidate);
-    if (distance < bestDistance) { bestDistance = distance; best = candidate; }
-  }
-  // "Obviously similar": a small edit distance relative to the word's own
-  // length — enough to catch a typo, not enough to suggest an unrelated field.
-  return best && bestDistance <= 2 && bestDistance < best.length ? best : null;
-}
-
-function levenshtein(a, b) {
-  const rows = a.length + 1;
-  const cols = b.length + 1;
-  const dp = Array.from({ length: rows }, () => new Array(cols).fill(0));
-  for (let i = 0; i < rows; i++) dp[i][0] = i;
-  for (let j = 0; j < cols; j++) dp[0][j] = j;
-  for (let i = 1; i < rows; i++) {
-    for (let j = 1; j < cols; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[a.length][b.length];
-}
 
 function* componentUses(owner) {
   yield* walk(owner.body);

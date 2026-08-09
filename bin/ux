@@ -5,6 +5,7 @@ import { loadProject } from '../src/project.js';
 import { link } from '../src/linker.js';
 import { renderMap } from '../src/map.js';
 import { renderDiagnostics } from '../src/report.js';
+import { lint } from '../src/lint.js';
 import { hasErrors, ERROR } from '../src/diagnostics.js';
 
 // Ordering is a CLI presentation concern, not part of what a diagnostic
@@ -37,13 +38,21 @@ function sortDiagnostics(diags) {
   });
 }
 
-const USAGE = `ux — check and map .ux projects
+const USAGE = `ux — check, lint and map .ux projects
 
   ux check [dir]   validate a project (default dir: ux)
+  ux lint  [dir]   report smells in a project that already checks
   ux map   [dir]   print the flow graph and write <dir>/.build/app.map
+
+  --strict         make warnings fail (exit 1); for CI
 `;
 
-const [command, dirArg] = process.argv.slice(2);
+// Flags are pulled out first so they can appear anywhere — `ux check --strict
+// ux/` and `ux check ux/ --strict` are the same command, and a flag can never
+// be mistaken for the directory.
+const argv = process.argv.slice(2);
+const strict = argv.includes('--strict');
+const [command, dirArg] = argv.filter(a => !a.startsWith('--') || a === '--help');
 const dir = dirArg ?? 'ux';
 
 if (!command || command === 'help' || command === '--help') {
@@ -55,7 +64,7 @@ if (!command || command === 'help' || command === '--help') {
 // command against a project that fails to load (the ordinary first-run
 // state: no `ux/` directory yet) gets misreported as a missing-directory
 // error instead of naming the actual mistake.
-if (command !== 'check' && command !== 'map') {
+if (command !== 'check' && command !== 'lint' && command !== 'map') {
   process.stdout.write(`Unknown command \`${command}\`.\n  fix:  ux check\n`);
   process.exit(1);
 }
@@ -75,22 +84,39 @@ try {
 // Report it in the same shape as the missing-directory error above, since
 // from the caller's side it is the same mistake: there is nothing here to
 // check yet.
-if (command === 'check' && programs.length === 0) {
+if ((command === 'check' || command === 'lint') && programs.length === 0) {
   process.stdout.write(`\`${dir}\` has no .ux files.\n  fix:  write at least one .ux file in ${dir}/\n`);
   process.exit(1);
 }
 
 const linked = link(programs);
-const all = sortDiagnostics([...diags, ...linked.diags]);
+const errors = sortDiagnostics([...diags, ...linked.diags]);
+const warnings = sortDiagnostics(lint(programs));
+
+// Warnings fail the build only when asked. A lint rule that cannot be ignored
+// is an error wearing the wrong label, and every rule here has a legitimate
+// exception — but CI wants a way to hold a line, so --strict provides one.
+const failed = list => hasErrors(list) || (strict && list.length > 0);
+
+if (command === 'lint') {
+  process.stdout.write(renderDiagnostics(warnings) + '\n');
+  process.exit(failed(warnings) ? 1 : 0);
+}
 
 if (command === 'check') {
+  // Warnings ride along with `check` rather than waiting for a second command
+  // nobody remembers to run — but they sort after every error, because an
+  // error is what stops you shipping.
+  const all = [...errors, ...warnings];
   const lexicalCount = all.filter(d => LEXICAL_CODES.has(d.code)).length;
   const banner = lexicalCount > 0
     ? `${lexicalCount} lexical error(s). Fix these first and re-run — anything below may be derived from a broken line.\n\n`
     : '';
   process.stdout.write(banner + renderDiagnostics(all) + '\n');
-  process.exit(hasErrors(all) ? 1 : 0);
+  process.exit(failed(all) ? 1 : 0);
 }
+
+const all = errors;
 
 // command === 'map': always exits 0 — a map of a broken project is exactly
 // what you want when hunting a dead end. But it isn't silent about errors:

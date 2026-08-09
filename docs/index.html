@@ -604,10 +604,10 @@ NewTask -&gt; Inbox</code></pre>
           </p>
         </div>
         <div>
-          <h3>34 rules, two layers</h3>
+          <h3>34 errors, six warnings</h3>
           <p>
-            One layer asks whether a file is well-formed. The other asks whether the names it references
-            exist anywhere in the project. Half of what they catch are UX defects, not code defects.
+            <code>ux check</code> reports what's wrong and fails the build. <code>ux lint</code> reports what's
+            merely suspect — an unused type, an intent that says nothing — and doesn't.
           </p>
         </div>
       </div>
@@ -838,6 +838,19 @@ const PRIMITIVE_TYPES = new Set([
 ]);
 
 const FIELD_MODIFIERS = new Set(['required']);
+// A wrong keyword is the most common way to get this language wrong, and it is
+// almost always a near-miss rather than an invention — `onTap` for `tap`,
+// `button` for `action`. Design rule R4 wanted these to parse with a warning
+// and normalise; that needs a formatter to canonicalise them, which does not
+// exist yet, and accepting an alias with nothing to rewrite it would leave the
+// alias in the file forever and fragment the language. So it stays an error,
+// but the error names the word the author meant — which is what R4 was
+// actually for: self-correction in one round trip.
+function keywordFix(word, keywords, display = keywords) {
+  const close = closestKeyword(word, keywords);
+  return close ? `did you mean \`${close}\`?` : `use one of: ${display.join(', ')}`;
+}
+
 const TOP_LEVEL = ['app', 'site', 'data', 'screen', 'component', 'flow'];
 
 function parse(source, file) {
@@ -869,7 +882,7 @@ function parse(source, file) {
       default:
         diags.push(diag('UX010', file, node.line,
           `\`${keyword}\` is not a top-level keyword.`,
-          `use one of: ${TOP_LEVEL.join(', ')}`));
+          keywordFix(keyword, TOP_LEVEL)));
     }
   }
 
@@ -960,6 +973,9 @@ function parseField(node, file, diags) {
   return field;
 }
 
+const LIST_KEYWORDS = ['sort', 'row', 'tap', 'empty', 'loading', 'error'];
+// `sort` is the keyword the parser matches; `sort by` is how it is written.
+const LIST_DISPLAY = ['sort by', 'row', 'tap', 'empty', 'loading', 'error'];
 const ELEMENT_KEYWORDS = ['heading', 'text', 'show', 'group', 'tabs', 'if', 'action', 'form', 'list', 'use'];
 
 function parseScreen(node, file, diags) {
@@ -1087,7 +1103,7 @@ function parseElement(node, file, diags) {
     default:
       diags.push(diag('UX013', file, node.line,
         `\`${keyword}\` is not a screen element.`,
-        `use one of: ${ELEMENT_KEYWORDS.join(', ')}`));
+        keywordFix(keyword, ELEMENT_KEYWORDS)));
       return null;
   }
 }
@@ -1150,7 +1166,7 @@ function parseList(node, rest, file, diags) {
     }
     diags.push(diag('UX013', file, child.line,
       `\`${keyword}\` is not valid inside a list.`,
-      'use one of: sort by, row, tap, empty, loading, error'));
+      keywordFix(keyword, LIST_KEYWORDS, LIST_DISPLAY)));
   }
 
   return list;
@@ -1250,7 +1266,7 @@ function parseStep(node, file, diags) {
     default:
       diags.push(diag('UX016', file, node.line,
         `\`${keyword}\` is not a flow step.`,
-        `use one of: ${FLOW_KEYWORDS.join(', ')}`));
+        keywordFix(keyword, FLOW_KEYWORDS)));
       return null;
   }
 }
@@ -1663,33 +1679,6 @@ function formFieldFix(name, dataName, declaredNames) {
   return close ? `did you mean \`${close}\`? ${available}` : available;
 }
 
-function closestName(name, candidates) {
-  let best = null;
-  let bestDistance = Infinity;
-  for (const candidate of candidates) {
-    const distance = levenshtein(name, candidate);
-    if (distance < bestDistance) { bestDistance = distance; best = candidate; }
-  }
-  // "Obviously similar": a small edit distance relative to the word's own
-  // length — enough to catch a typo, not enough to suggest an unrelated field.
-  return best && bestDistance <= 2 && bestDistance < best.length ? best : null;
-}
-
-function levenshtein(a, b) {
-  const rows = a.length + 1;
-  const cols = b.length + 1;
-  const dp = Array.from({ length: rows }, () => new Array(cols).fill(0));
-  for (let i = 0; i < rows; i++) dp[i][0] = i;
-  for (let j = 0; j < cols; j++) dp[0][j] = j;
-  for (let i = 1; i < rows; i++) {
-    for (let j = 1; j < cols; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[a.length][b.length];
-}
 
 function* componentUses(owner) {
   yield* walk(owner.body);

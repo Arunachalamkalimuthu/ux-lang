@@ -72,6 +72,16 @@ is the neutral `fix:` rather than `add:` on purpose, because not every fix
 is a line to add. `ux map` prints the navigation graph and writes it to
 `<dir>/.build/app.map`.
 
+`ux lint` is the other half. Six warnings for programs that are valid but
+probably not what you meant: an unused `data` type, a `flow` nothing invokes,
+an `intent` that only restates the screen's name, a list nobody can act on.
+Warnings never fail a build unless you ask.
+
+```bash
+node bin/ux lint examples/tasks/ux
+node bin/ux lint --strict ux/      # for CI: warnings exit 1
+```
+
 ## Using it with Claude Code
 
 Install the plugin in `plugin/`:
@@ -98,7 +108,7 @@ Then describe an app — Claude writes the `.ux`, checks it against
 ## Status
 
 Format designed and specified. Toolchain built: lexer, parser, checker,
-linker, CLI (`ux check`, `ux map`), and Claude Code plugin. The full test
+linker, CLI (`ux check`, `ux lint`, `ux map`), and Claude Code plugin. The full test
 suite (`npm test`) passes. The adoption benchmark in `bench/` measures
 whether a model that has never seen `.ux` can write it correctly from the
 plugin's skill alone — both parse rate and whether the parsed result

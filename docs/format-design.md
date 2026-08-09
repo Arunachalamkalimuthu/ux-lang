@@ -258,23 +258,24 @@ The format's quality is measurable, which is unusual for a language and is the p
 
 ## 10. Known limitations
 
-- **R4 (near-misses parse with a warning) is not implemented.** The design
-  called for a `onTap`-style near-miss to parse with a warning and normalize
-  on format, so a model would learn the idiom from its own output in one
-  round trip rather than from a rejected attempt. As built, that mechanism
-  does not exist: no `diag()` call site in `src/` passes a severity, so
-  every diagnostic `check`/`link` produce is an `ERROR`; `WARNING` is
-  exported from `diagnostics.js` but the only place it's used is a synthetic
-  fixture in `report.test.js` proving the rendering *would* work if anything
-  ever emitted one. In practice, `ux check` prints `N error(s), 0
-  warning(s)` on every run — the warning count is permanently zero. This
-  matters because R4 was specifically the self-correction path for a model
-  guessing a plausible-but-wrong spelling; without it, a near-miss is just
-  another hard failure, indistinguishable from a genuine mistake, and the
-  "learn the idiom in one round trip" story R4 promised does not happen.
-  Deferred, not abandoned — a real design (what counts as a "near miss",
-  what it normalizes to, how normalization interacts with `ux map`) needs
-  its own pass, not a bolt-on.
+- **R4 (near-misses parse with a warning) is only half implemented.** The
+  design called for an `onTap`-style near-miss to parse with a warning and
+  normalize on format, so a model would learn the idiom from its own output in
+  one round trip rather than from a rejected attempt. Half of that now exists:
+  an unknown keyword that is obviously a typo of a real one is still an error,
+  but the error names the word you meant — `` `onTap` is not a screen element.
+  fix: did you mean `tap`? `` — which delivers R4's actual goal, self-correction
+  in a single round trip, for the case that matters.
+  What is still missing is the *accepting* half: `onTap` does not parse as
+  `tap`. That is deliberate rather than unfinished. Accepting an alias is only
+  safe if something rewrites it to the canonical spelling, and `ux fmt` does
+  not exist — so an accepted alias would survive in the file indefinitely and
+  the language would fragment into synonyms, which is exactly what R3 ("one way
+  to say each thing") exists to prevent. The accepting half is therefore
+  blocked on `ux fmt`, not on the near-miss logic, which is built and shared by
+  the parser and linker in `src/similar.js`.
+  The `WARNING` severity, dead since the first commit, is now what `ux lint`
+  emits (`UX300`-`UX305`), so the permanently-zero warning count is gone too.
 - **A `list`'s `where` clause and a `show` expression are free text,
   validated by nothing.** `list Show where popular` and `show
   nowPlaying.title` both check clean with `popular` and `nowPlaying`
