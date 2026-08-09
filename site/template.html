@@ -1,0 +1,655 @@
+<style>
+:root {
+  --paper:      #EEF1F0;
+  --paper-sunk: #E4E9E7;
+  --card:       #F7F9F8;
+  --ink:        #121A1C;
+  --ink-soft:   #3D4B4C;
+  --muted:      #66787A;
+  --rule:       #D2DAD8;
+  --accent:     #0B6E6B;
+  --accent-dim: #0B6E6B22;
+  --signal:     #A8511B;
+  --signal-dim: #A8511B1A;
+  --ok:         #1F6F45;
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --serif: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, serif;
+
+  --measure: 64ch;
+  --gutter: 9rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #0D1315;
+    --paper-sunk: #080D0F;
+    --card:       #131B1D;
+    --ink:        #E3EAE8;
+    --ink-soft:   #B3C2C0;
+    --muted:      #7E9290;
+    --rule:       #212E30;
+    --accent:     #56B8B2;
+    --accent-dim: #56B8B222;
+    --signal:     #DE9256;
+    --signal-dim: #DE92561A;
+    --ok:         #5FBE8C;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:      #0D1315;
+  --paper-sunk: #080D0F;
+  --card:       #131B1D;
+  --ink:        #E3EAE8;
+  --ink-soft:   #B3C2C0;
+  --muted:      #7E9290;
+  --rule:       #212E30;
+  --accent:     #56B8B2;
+  --accent-dim: #56B8B222;
+  --signal:     #DE9256;
+  --signal-dim: #DE92561A;
+  --ok:         #5FBE8C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: calc(var(--gutter) + var(--measure) + 8rem);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Sections hang off a left gutter that holds the label, echoing the way
+   app.map pads screen names into a column so the arrows line up. */
+.band {
+  display: grid;
+  grid-template-columns: var(--gutter) minmax(0, 1fr);
+  gap: 0 2.5rem;
+  padding: 4.5rem 0;
+  border-top: 1px solid var(--rule);
+}
+.band:first-of-type { border-top: 0; }
+
+.band > .label {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 0.45rem;
+  font-weight: 500;
+}
+
+.band > .body { min-width: 0; }
+
+@media (max-width: 800px) {
+  .band { grid-template-columns: minmax(0, 1fr); gap: 0.85rem; }
+  .band > .label { padding-top: 0; }
+}
+
+h1, h2, h3 { font-family: var(--mono); font-weight: 600; text-wrap: balance; margin: 0; }
+
+/* Monospace headlines run far wider than a proportional face at the same
+   size, so this scale is set against the column width, not by eye. */
+h1 {
+  font-size: clamp(1.75rem, 4.1vw, 2.65rem);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+h2 {
+  font-size: clamp(1.25rem, 2.6vw, 1.6rem);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  margin-bottom: 1rem;
+}
+h3 {
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.4rem;
+}
+
+p, li {
+  font-family: var(--serif);
+  font-size: 1.06rem;
+  line-height: 1.62;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}
+p { margin: 0 0 1rem; }
+p:last-child, ul:last-child { margin-bottom: 0; }
+ul { margin: 0 0 1rem; padding-left: 1.1rem; }
+li { margin-bottom: 0.4rem; }
+
+strong { color: var(--ink); font-weight: 600; }
+em { font-style: italic; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--accent-dim);
+  padding: 0.08em 0.34em;
+  border-radius: 2px;
+}
+p code, li code { color: var(--ink); }
+
+pre {
+  font-family: var(--mono);
+  font-size: 0.83rem;
+  line-height: 1.68;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  padding: 1.1rem 1.25rem;
+  overflow-x: auto;
+  margin: 0 0 1.25rem;
+  tab-size: 2;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---- hero ---------------------------------------------------------- */
+
+.hero { padding: 5rem 0 2.5rem; }
+.hero .lede {
+  font-family: var(--serif);
+  font-size: 1.22rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 58ch;
+  margin: 1.35rem 0 2rem;
+}
+.hero .lede b { color: var(--ink); font-weight: 600; }
+
+.eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: 3rem;
+  align-items: start;
+}
+/* Grid items refuse to shrink below their content width unless told to, which
+   is how a long monospace headline ends up overrunning its own column. */
+.hero-grid > * { min-width: 0; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; } }
+
+.actions { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center; }
+
+.btn {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.btn:hover { background: var(--accent-dim); }
+.btn.solid { background: var(--accent); color: var(--paper); }
+.btn.solid:hover { opacity: 0.88; }
+
+.note { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); margin-top: 0.9rem; }
+
+/* ---- playground ---------------------------------------------------- */
+
+.pg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin-top: 1.5rem;
+}
+@media (max-width: 860px) { .pg { grid-template-columns: minmax(0, 1fr); } }
+
+.pane { background: var(--card); display: flex; flex-direction: column; min-width: 0; }
+
+.pane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--paper-sunk);
+}
+
+#src {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.65;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  resize: vertical;
+  padding: 0.9rem;
+  min-height: 27rem;
+  width: 100%;
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+#out {
+  margin: 0;
+  padding: 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.62;
+  min-height: 27rem;
+  overflow: auto;
+  border: 0;
+  background: transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.d-code   { color: var(--signal); font-weight: 600; }
+.d-where  { color: var(--muted); }
+.d-fix    { color: var(--accent); }
+.d-clean  { color: var(--ok); }
+.d-banner { color: var(--signal); background: var(--signal-dim); display: block; padding: 0.35rem 0.5rem; margin-bottom: 0.75rem; }
+
+.chip {
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+}
+.chip.bad { color: var(--signal); }
+.chip.good { color: var(--ok); }
+
+.tryline { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.9rem; }
+.try {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+.try:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- misc ---------------------------------------------------------- */
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.75rem; }
+.cols p { font-size: 1rem; }
+
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; max-width: var(--measure); }
+.steps li {
+  font-family: var(--mono);
+  font-size: 0.83rem;
+  color: var(--ink-soft);
+  padding-left: 1.6rem;
+  position: relative;
+  margin: 0;
+}
+.steps li::before { content: "->"; position: absolute; left: 0; color: var(--accent); }
+
+footer { border-top: 1px solid var(--rule); padding: 2.5rem 0 4rem; }
+footer p { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); max-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">ux-lang · Apache-2.0</div>
+    <div class="hero-grid">
+      <div>
+        <h1>A language for what your interface means.</h1>
+        <p class="lede">
+          <code>.ux</code> describes screens, what a person can do on them, and where every action leads.
+          Then it catches the bugs a compiler normally can't — <b>like a screen nobody can leave</b>.
+        </p>
+        <div class="actions">
+          <a class="btn solid" href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a>
+          <a class="btn" href="#playground">Try it below</a>
+        </div>
+        <p class="note">Node 20+. Zero dependencies — nothing to install after the clone.</p>
+      </div>
+      <div>
+<pre><code>app Tasks
+
+data Task
+  title  text  required
+  done   bool  = false
+  due    date?
+
+screen Inbox
+  at /
+  intent "See what's due and clear it"
+
+  list Task where not done
+    sort by due
+    row   title, due
+    tap   -&gt; Detail(task)
+    empty   "All clear."
+    loading skeleton 3 rows
+    error   "Couldn't load." action retry
+
+  action "New task" -&gt; NewTask</code></pre>
+      </div>
+    </div>
+  </header>
+
+  <section class="band">
+    <div class="label">The problem</div>
+    <div class="body">
+      <h2>Nothing records what the app was supposed to be.</h2>
+      <p>
+        You prompt a screen into existence, then another. The model never sees the app as a system — so
+        state contradicts itself across screens, a flow dead-ends, and a regeneration quietly drops a step
+        nobody notices until a user does.
+      </p>
+      <p>
+        The generated code can't be the record. It's forty files of implementation, and no single one of them
+        states the intent. <strong>A <code>.ux</code> file can be one page</strong> — short enough for a person to read in a
+        minute and for a model to hold entirely in context.
+      </p>
+    </div>
+  </section>
+
+  <section class="band" id="playground">
+    <div class="label">Try it</div>
+    <div class="body">
+      <h2>This runs the real checker.</h2>
+      <p>
+        Not a recording. The lexer, parser, checker and linker below are the same files the CLI imports —
+        everything except the filesystem layer is a pure function over strings, so it runs here unmodified.
+      </p>
+
+      <div class="pg">
+        <div class="pane">
+          <div class="pane-head"><span>ux/app.ux</span><span id="stat" class="chip">checking</span></div>
+          <textarea id="src" spellcheck="false" aria-label="Editable .ux source"></textarea>
+        </div>
+        <div class="pane">
+          <div class="pane-head"><span>ux check</span><span>live</span></div>
+          <pre id="out" aria-live="polite" aria-atomic="true"></pre>
+        </div>
+      </div>
+
+      <div class="tryline">
+        <button class="try" data-fix="deadend">Give Detail a way out</button>
+        <button class="try" data-fix="typo">Break a link</button>
+        <button class="try" data-fix="states">Drop a list state</button>
+        <button class="try" data-fix="reset">Reset</button>
+      </div>
+
+      <p class="note">
+        <code>Detail</code> starts with no way out. It would compile, render, and work — it's just a room with no
+        door, and nothing but a checker that understands navigation will tell you.
+      </p>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">app.map</div>
+    <div class="body">
+      <h2>The whole app, in four lines.</h2>
+<pre><code>Inbox   -&gt; Detail | NewTask
+Detail  -&gt; Inbox
+NewTask -&gt; Inbox</code></pre>
+      <p>
+        Generated from the arrows. It's small enough to keep in context permanently, which is the point:
+        a model editing one screen reads this plus the single file it's changing, and still reasons correctly
+        about the entire app. It never has to load everything.
+      </p>
+      <p>That's what lets this scale past a hundred screens without outgrowing a context window.</p>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">Diagnostics</div>
+    <div class="body">
+      <h2>Every error names its own fix.</h2>
+<pre><code>inbox.ux:6  UX202  `Detail` has no way out — a user who lands here is stuck.
+  fix:  add an action that leaves:  action "Back" -&gt; Inbox</code></pre>
+      <div class="cols">
+        <div>
+          <h3>Built for a model to act on</h3>
+          <p>
+            The <code>fix:</code> line exists so a model can self-correct without a human refereeing. Write, check,
+            fix, repeat — the loop closes on its own.
+          </p>
+        </div>
+        <div>
+          <h3>34 rules, two layers</h3>
+          <p>
+            One layer asks whether a file is well-formed. The other asks whether the names it references
+            exist anywhere in the project. Half of what they catch are UX defects, not code defects.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">With Claude Code</div>
+    <div class="body">
+      <h2>There's no compiler. The model is the compiler.</h2>
+      <ul class="steps">
+        <li>you describe the app</li>
+        <li>Claude writes the <code>.ux</code></li>
+        <li><code>ux check</code> — and Claude fixes whatever it reports</li>
+        <li>Claude generates the React from it</li>
+      </ul>
+      <p style="margin-top:1.25rem">
+        The grammar is 422 tokens, so the entire language ships inside every prompt. The model never has to
+        remember it.
+      </p>
+<pre><code>git clone https://github.com/Arunachalamkalimuthu/ux-lang
+cd ux-lang &amp;&amp; npm link
+ux check examples/tasks/ux
+
+# in Claude Code:
+/plugin marketplace add /path/to/ux-lang
+/plugin install ux-lang@ux-lang</code></pre>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">Status</div>
+    <div class="body">
+      <h2>What's built, and what isn't.</h2>
+      <p>
+        Built: the parser, both checking layers, the CLI, three worked example apps, the Claude Code plugin,
+        and an adoption benchmark. The suite is green and the examples check clean.
+      </p>
+      <p>Not built, and worth knowing before you invest:</p>
+      <ul>
+        <li>
+          <strong>The Chrome indexer.</strong> Reading a live page <em>into</em> <code>.ux</code>, so an agent navigates a
+          semantic index instead of the DOM. Specified in the design, not started.
+        </li>
+        <li>
+          <strong>Search and filter-by-input.</strong> A list's <code>where</code> clause can't reference something the user
+          just typed. The benchmark found this; there's no design for it yet.
+        </li>
+        <li>
+          <strong>Drift protection.</strong> Nothing yet verifies that generated code still matches its <code>.ux</code>.
+          It's a convention, not an enforcement.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Apache-2.0 · <a href="https://github.com/Arunachalamkalimuthu/ux-lang">github.com/Arunachalamkalimuthu/ux-lang</a>
+    </p>
+    <p>The patent grant is deliberate: a format is only worth having if other people can implement it without asking.</p>
+  </footer>
+
+</div>
+
+<script type="module">
+/*__TOOLCHAIN__*/
+
+// ---- playground -------------------------------------------------------
+//
+// The modules above are src/ verbatim. Only the filesystem layer is
+// replaced: instead of loadProject() walking a directory, we hand the
+// parser one string per virtual file.
+//
+// The ordering below mirrors bin/ux's presentation logic. Ordering is a CLI
+// concern rather than part of a diagnostic, so it lives outside src/ in both
+// places; the diagnostics themselves come from the real modules.
+
+const LEXICAL = new Set(['UX001', 'UX002', 'UX003', 'UX004']);
+
+function sortDiagnostics(diags) {
+  return [...diags].sort((a, b) => {
+    const phase = Number(LEXICAL.has(b.code)) - Number(LEXICAL.has(a.code));
+    if (phase !== 0) return phase;
+    return a.file.localeCompare(b.file) || a.line - b.line || a.code.localeCompare(b.code);
+  });
+}
+
+const SAMPLE = `app Tasks
+
+data Task
+  title  text  required
+  done   bool  = false
+  due    date?
+
+screen Inbox
+  at /
+  intent "See what's due and clear it"
+
+  list Task where not done
+    sort by due
+    row   title, due
+    tap   -> Detail(task)
+    empty   "All clear."
+    loading skeleton 3 rows
+    error   "Couldn't load." action retry
+
+  action "New task" -> NewTask
+
+screen Detail(task)
+  intent "Read one task and finish it"
+  show task.title
+
+screen NewTask
+  intent "Capture a task in one step"
+  form Task
+    title required
+    due
+    submit "Create" -> create(task)
+  action "Cancel" -> Inbox
+
+flow create(task)
+  call api.create(task)
+    ok   -> toast "Task added"
+    fail -> error "Couldn't create that."
+  go Inbox
+`;
+
+const VARIANTS = {
+  deadend: s => s.replace(
+    '  show task.title\n',
+    '  show task.title\n  action "Back" -> Inbox\n'),
+  typo: s => s.replace('tap   -> Detail(task)', 'tap   -> Detials(task)'),
+  states: s => s.replace('    loading skeleton 3 rows\n', ''),
+  reset: () => SAMPLE,
+};
+
+const editor = document.getElementById('src');
+const out = document.getElementById('out');
+const stat = document.getElementById('stat');
+
+const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function run() {
+  const source = editor.value;
+  let diags = [];
+  let programs = [];
+
+  try {
+    const { ast, diags: parseDiags } = parse(source, 'ux/app.ux');
+    programs = [ast];
+    diags = [...parseDiags, ...check(ast)];
+    const linked = link(programs);
+    diags = sortDiagnostics([...diags, ...linked.diags]);
+  } catch (error) {
+    out.innerHTML = '<span class="d-code">The playground hit an unexpected error.</span>\n' +
+      esc(String(error && error.message ? error.message : error));
+    stat.textContent = 'error';
+    stat.className = 'chip bad';
+    return;
+  }
+
+  const errors = diags.filter(d => d.severity === 'error').length;
+
+  if (diags.length === 0) {
+    out.innerHTML = '<span class="d-clean">No problems found.</span>';
+    stat.textContent = 'clean';
+    stat.className = 'chip good';
+    return;
+  }
+
+  const lexical = diags.filter(d => LEXICAL.has(d.code)).length;
+  const banner = lexical > 0
+    ? `<span class="d-banner">${lexical} lexical error(s). Fix these first — anything below may be derived from a broken line.</span>`
+    : '';
+
+  const rendered = diags.map(d =>
+    `<span class="d-where">${esc(d.file)}:${d.line}</span>  ` +
+    `<span class="d-code">${esc(d.code)}</span>  ${esc(d.message)}\n` +
+    `  <span class="d-fix">fix:  ${esc(d.fix)}</span>`
+  ).join('\n\n');
+
+  out.innerHTML = banner + rendered + `\n\n<span class="d-where">${errors} error(s)</span>`;
+  stat.textContent = errors + ' error' + (errors === 1 ? '' : 's');
+  stat.className = 'chip bad';
+}
+
+let timer;
+editor.addEventListener('input', () => {
+  clearTimeout(timer);
+  timer = setTimeout(run, 140);
+});
+
+for (const button of document.querySelectorAll('.try')) {
+  button.addEventListener('click', () => {
+    editor.value = VARIANTS[button.dataset.fix](editor.value);
+    run();
+  });
+}
+
+editor.value = SAMPLE;
+run();
+</script>
