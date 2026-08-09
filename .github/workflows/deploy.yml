@@ -1,0 +1,53 @@
+name: Deploy site
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Nothing built is committed, so the deployed site cannot be stale relative to
+# the source — it is rebuilt from `src/` and the markdown on every push. That
+# replaces the staleness test the hand-rolled site needed.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: www/package-lock.json
+
+      - run: npm ci
+        working-directory: www
+
+      # The site imports the toolchain out of ../src, so a build failure here
+      # can mean the language broke, not just the website.
+      - run: npm run build
+        working-directory: www
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: www/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

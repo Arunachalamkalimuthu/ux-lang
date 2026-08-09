@@ -10,7 +10,30 @@ changes. A rule is retired rather than repurposed.
 
 ## [Unreleased]
 
+### Changed
+
+- The website is now a Next.js app under `www/`, deployed to GitHub Pages by
+  Actions instead of from a committed `docs/` folder. The hand-rolled builder,
+  its markdown renderer and the committed output are gone.
+  The move was driven by the markdown renderer: 35 lines whose entire job was
+  to be invisible, which had produced two visible bugs (links unsupported, a
+  preamble sliced by line count). Nine pages and two markdown-sourced documents
+  was past the point where writing one by hand paid for itself.
+  Two properties were protected rather than traded away. The toolchain still
+  has **no dependencies** — `www/` is a separate package, and CI still fails the
+  build if one appears at the root. And the playground still runs the real
+  toolchain: it now does `import { parse } from '../../src/parser.js'`, a
+  genuine import of the genuine file, which is a stronger guarantee than the
+  regex-and-concatenate inliner it replaces.
+  Nothing built is committed any more, so the site cannot be stale relative to
+  its source — that replaces the staleness test entirely.
+
 ### Added
+
+- `test/browser-safe.test.js`, which fails if any module in `src/` other than
+  `project.js` reaches for a Node builtin. That property is what lets the
+  website import the toolchain and run it in a browser, and it was previously
+  protected only by nobody having broken it.
 
 - A diagram on the landing page showing what a dead end actually is: three
   screens, arrows between them, and one with none leaving it. The claim was

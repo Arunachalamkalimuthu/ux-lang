@@ -8,7 +8,7 @@ The diff shows the what. Use this space for the why.
 - [ ] A test fails without this change (for a fix, the test that reproduces it)
 - [ ] Valid input is covered too — a false positive is worse than a missed detection
 - [ ] All three examples still `check` and `lint --strict` clean
-- [ ] `node site/build.mjs` run and the result committed, if `src/` or `site/` changed
+- [ ] The website still builds, if `src/` or `www/` changed (`cd www && npm run build`)
 
 ### If you added a diagnostic
 

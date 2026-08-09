@@ -59,12 +59,20 @@ jobs:
             node bin/ux fmt --check "examples/$example/ux"
           done
 
-      - name: Confirm the site build is reproducible
-        run: |
-          node site/build.mjs
-          if ! git diff --quiet; then
-            echo "The committed site differs from a fresh build."
-            echo "Run 'node site/build.mjs' and commit the result."
-            git diff --stat
-            exit 1
-          fi
+  # The website is a separate package with its own dependencies. It is built
+  # here as well as on deploy, so a pull request that breaks it fails before it
+  # is merged rather than after.
+  site:
+    runs-on: ubuntu-latest
+    name: site builds
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: www/package-lock.json
+      - run: npm ci
+        working-directory: www
+      - run: npm run build
+        working-directory: www
