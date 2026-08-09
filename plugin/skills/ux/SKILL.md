@@ -122,3 +122,6 @@ source of truth a lie.
 - `reference/grammar.md` — the full grammar with every form spelled out, and
   every diagnostic code
 - `reference/codegen.md` — turning `.ux` into React and other targets
+- `reference/import.md` — the other direction: reading an app that already
+  exists into `.ux`, and why its first `ux check` is an audit rather than a
+  transcription report

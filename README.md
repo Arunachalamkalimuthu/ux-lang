@@ -101,6 +101,11 @@ available one of these ways before (or instead of) using the plugin:
 - `node bin/ux <args>` from the repo root — works with no setup at all, and
   is what the skill and `/ux` command fall back to if `ux` isn't linked.
 
+Already have an app? `/ux-import` reads it into a `.ux` file, router first.
+Expect the first `ux check` to fail loudly — on a real codebase most of those
+diagnostics are true statements about the app, not transcription errors, and
+that audit is the point. See `plugin/skills/ux/reference/import.md`.
+
 Then describe an app — Claude writes the `.ux`, checks it against
 `plugin/skills/ux/SKILL.md`'s grammar, and generates code from it. See
 `plugin/commands/ux.md` for the workflow the plugin follows.
