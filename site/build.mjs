@@ -68,13 +68,6 @@ export const POSTS = [
   },
 ];
 
-// The mark is `app.map`: screen names of unequal length on the left, padded so
-// the arrows land in one aligned column on the right. That column is the
-// artifact this tool produces and is specific to it — unlike a rounded square
-// with an arrow leaving it, which is the standard sign-out icon.
-//
-// The names are held back to 55% so the arrows carry the mark: what the
-// language is actually about is where things lead.
 // The mark is three lines of `.ux`: a declaration at the left margin, two
 // indented under it, and one of those running out as an arrow.
 //
@@ -135,7 +128,7 @@ function footer(base) {
     </div>
     <div>
       <p class="foot-head">Project</p>
-      <p><a href="${GITHUB}">GitHub</a><br><a href="${base}use-cases.html">Use cases</a><br><a href="${base}blog/">Blog</a></p>
+      <p><a href="${base}syntax.html">Syntax</a><br><a href="${base}use-cases.html">Use cases</a><br><a href="${base}blog/">Blog</a></p>
     </div>
     <div>
       <p class="foot-head">Legal</p>
@@ -148,6 +141,7 @@ function footer(base) {
 
 const PAGE_LINKS = base => [
   ['Overview', `${base}index.html`, 'index'],
+  ['Syntax', `${base}syntax.html`, 'syntax'],
   ['Use cases', `${base}use-cases.html`, 'use-cases'],
   ['Blog', `${base}blog/`, 'blog'],
   ['Terms', `${base}terms.html`, 'terms'],
@@ -155,6 +149,7 @@ const PAGE_LINKS = base => [
 
 const ANCHOR_LINKS = [
   ['Overview', '#top', 'index'],
+  ['Syntax', '#syntax', 'syntax'],
   ['Use cases', '#use-cases', 'use-cases'],
   ['Blog', '#blog', 'blog'],
   ['Terms', '#terms', 'terms'],
@@ -171,6 +166,86 @@ async function inlineToolchain() {
 }
 
 const frag = name => readFile(join(HERE, name), 'utf8');
+
+// ---- markdown -----------------------------------------------------------
+//
+// The syntax page is rendered from the same `grammar.md` the plugin ships, so
+// there is exactly one grammar reference and the site cannot drift from what
+// a model is taught. That rules out hand-writing a second copy in HTML, and
+// the zero-dependency rule rules out a markdown library — so this covers the
+// subset that file actually uses: headings, fences, tables, bullets, inline
+// code and bold. No links or blockquotes appear in it.
+
+const escapeHtml = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+// Escaping runs first, so `**` and backticks inside code samples can never be
+// mistaken for markup.
+const inline = s => escapeHtml(s)
+  .replace(/`([^`]+)`/g, '<code>$1</code>')
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+const CELLS = row => row.split('|').slice(1, -1).map(c => c.trim());
+
+export function markdownToHtml(md) {
+  const lines = md.split('\n');
+  const out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.startsWith('```')) {
+      const body = [];
+      for (i++; i < lines.length && !lines[i].startsWith('```'); i++) body.push(lines[i]);
+      i++;
+      out.push(`<pre><code>${escapeHtml(body.join('\n'))}</code></pre>`);
+      continue;
+    }
+
+    const heading = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (heading) {
+      // The page supplies its own h1, so markdown headings start at h2.
+      const level = Math.min(heading[1].length + 1, 4);
+      out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('|')) {
+      const rows = [];
+      while (i < lines.length && lines[i].startsWith('|')) rows.push(lines[i++]);
+      const head = CELLS(rows[0]).map(c => `<th>${inline(c)}</th>`).join('');
+      const body = rows.slice(2)
+        .map(r => `<tr>${CELLS(r).map(c => `<td>${inline(c)}</td>`).join('')}</tr>`)
+        .join('');
+      out.push(`<div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`);
+      continue;
+    }
+
+    if (line.startsWith('- ')) {
+      const items = [];
+      while (i < lines.length && (lines[i].startsWith('- ') || /^\s+\S/.test(lines[i]))) {
+        if (lines[i].startsWith('- ')) items.push(lines[i].slice(2));
+        else items[items.length - 1] += ' ' + lines[i].trim();
+        i++;
+      }
+      out.push(`<ul>${items.map(t => `<li>${inline(t)}</li>`).join('')}</ul>`);
+      continue;
+    }
+
+    if (line.trim() === '') { i++; continue; }
+
+    const para = [];
+    while (
+      i < lines.length && lines[i].trim() !== '' &&
+      !lines[i].startsWith('```') && !lines[i].startsWith('|') &&
+      !lines[i].startsWith('- ') && !/^#{1,4}\s/.test(lines[i])
+    ) para.push(lines[i++]);
+    out.push(`<p>${inline(para.join(' '))}</p>`);
+  }
+
+  return out.join('\n');
+}
 
 export function standalone(body, title, description) {
   return `<!doctype html>
@@ -203,6 +278,11 @@ export async function buildSite() {
     throw new Error('site/pages/index.html lost its playground');
   }
 
+  const grammar = await readFile(join(ROOT, 'plugin/skills/ux/reference/grammar.md'), 'utf8');
+  // Drop the file's own h1 and its plugin-facing preamble; the page supplies both.
+  const grammarBody = markdownToHtml(grammar.split('\n').slice(7).join('\n'));
+  const syntax = (await frag('pages/syntax.html')).replace('<!--__GRAMMAR__-->', grammarBody);
+
   const useCases = await frag('pages/use-cases.html');
   const terms = await frag('pages/terms.html');
   const blogIndex = (await frag('pages/blog.html')).replace('<!--__POSTLIST__-->', postList(''));
@@ -212,7 +292,7 @@ export async function buildSite() {
     posts[post.slug] = await frag(`posts/${post.slug}.html`);
   }
 
-  return { landing, useCases, terms, blogIndex, posts };
+  return { landing, syntax, useCases, terms, blogIndex, posts };
 }
 
 function postList(base) {
@@ -225,18 +305,23 @@ function postList(base) {
 
 const DESC = {
   index: 'A small declarative language for what a user interface means. Catches the bugs a compiler cannot, like a screen nobody can leave.',
+  syntax: 'The complete .ux grammar: declarations, screen elements, flows, the rules the checker enforces, and every diagnostic code.',
   'use-cases': 'Where a .ux file earns its keep: regenerating an app without losing a step, reviewing flows before code exists, and guarding navigation in CI.',
   blog: 'Writing about the problems .ux is meant to solve.',
   terms: 'Terms of use for the ux-lang website.',
 };
 
 export async function buildPages() {
-  const { landing, useCases, terms, blogIndex, posts } = await buildSite();
+  const { landing, syntax, useCases, terms, blogIndex, posts } = await buildSite();
   const out = {};
 
   out['docs/index.html'] = standalone(
     await shell({ content: landing, base: '', current: 'index', links: PAGE_LINKS('') }),
     'ux-lang — a language for what your interface means', DESC.index);
+
+  out['docs/syntax.html'] = standalone(
+    await shell({ content: syntax, base: '', current: 'syntax', links: PAGE_LINKS('') }),
+    'Syntax — ux-lang', DESC.syntax);
 
   out['docs/use-cases.html'] = standalone(
     await shell({ content: useCases, base: '', current: 'use-cases', links: PAGE_LINKS('') }),
@@ -267,6 +352,8 @@ export async function buildPages() {
       html)
     .replaceAll('href="../use-cases.html"', 'href="#use-cases"')
     .replaceAll('href="use-cases.html"', 'href="#use-cases"')
+    .replaceAll('href="../syntax.html"', 'href="#syntax"')
+    .replaceAll('href="syntax.html"', 'href="#syntax"')
     .replaceAll('href="../terms.html"', 'href="#terms"')
     .replaceAll('href="terms.html"', 'href="#terms"')
     .replaceAll('href="../blog/"', 'href="#blog"')
@@ -274,6 +361,7 @@ export async function buildPages() {
 
   const allInOne = toAnchor([
     landing,
+    `<div id="syntax"></div>`, syntax,
     `<div id="use-cases"></div>`, useCases,
     `<div id="blog"></div>`, blogIndex.replace('<!--__POSTLIST__-->', postList('')),
     ...POSTS.map(p => `<div id="${p.slug}"></div>\n${posts[p.slug]}`),

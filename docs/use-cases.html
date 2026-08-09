@@ -429,6 +429,22 @@ blockquote p { color: var(--ink); font-style: italic; }
   padding: 0.05em 0.35em;
 }
 
+.tablewrap { overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--rule); }
+table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 0.8rem; }
+th, td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th {
+  background: var(--paper-sunk);
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+td { color: var(--ink-soft); }
+tbody tr:last-child td { border-bottom: 0; }
+td code, th code { background: none; padding: 0; color: var(--accent); }
+
 /* ---- footer --------------------------------------------------------- */
 
 footer { border-top: 1px solid var(--rule); padding: 3rem 0 4rem; margin-top: 2rem; }
@@ -463,7 +479,7 @@ footer p { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); ma
         stroke="currentColor" stroke-width="0.9" stroke-linejoin="round"/>
   <rect x="7.4" y="17" width="8.4" height="2.9" rx="1.45"/>
 </svg><span>ux-lang</span></a>
-  <div class="nav-links"><a href="index.html">Overview</a><a href="use-cases.html" aria-current="page">Use cases</a><a href="blog/">Blog</a><a href="terms.html">Terms</a><a class="nav-gh" href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a></div>
+  <div class="nav-links"><a href="index.html">Overview</a><a href="syntax.html">Syntax</a><a href="use-cases.html" aria-current="page">Use cases</a><a href="blog/">Blog</a><a href="terms.html">Terms</a><a class="nav-gh" href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a></div>
 </nav>
 <main class="wrap" id="top">
   <header class="hero">
@@ -618,7 +634,7 @@ Checkout      -&gt; Cart | Catalog</code></pre>
     </div>
     <div>
       <p class="foot-head">Project</p>
-      <p><a href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a><br><a href="use-cases.html">Use cases</a><br><a href="blog/">Blog</a></p>
+      <p><a href="syntax.html">Syntax</a><br><a href="use-cases.html">Use cases</a><br><a href="blog/">Blog</a></p>
     </div>
     <div>
       <p class="foot-head">Legal</p>

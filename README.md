@@ -113,7 +113,8 @@ actually means what was asked. Known limitations:
   generator to keep code and `.ux` in sync; nothing in `ux check` verifies
   that it actually did.
 
-- **[Format design](docs/format-design.md)**
+- **[Syntax reference](plugin/skills/ux/reference/grammar.md)** — the whole grammar, every rule, every diagnostic code. Also rendered as a page at `docs/syntax.html` once GitHub Pages is on.
+- **[Format design](docs/format-design.md)** — why the language is shaped this way, and what it deliberately does not do
 - **[Adoption benchmark](bench/README.md)**
 
 ## License
