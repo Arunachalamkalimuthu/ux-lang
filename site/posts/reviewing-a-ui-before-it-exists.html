@@ -1,0 +1,83 @@
+  <article class="article">
+    <span class="post-meta">2026-08-09 · 5 min</span>
+    <h1>Reviewing a UI before it exists</h1>
+    <p class="stand">
+      "Where does Cancel go?" is a product decision. Today it gets made by whoever wrote the component,
+      at 2am, by accident.
+    </p>
+
+    <p>
+      Think about how a navigation decision actually gets made on most teams.
+    </p>
+    <p>
+      Someone builds a checkout screen. It needs a Cancel button. They write
+      <code>navigate(-1)</code>, or they push to <code>/cart</code>, or they route home — whichever felt right
+      while they were deep in a payment integration and Cancel was the least interesting thing on screen.
+      It ships. Nine months later a support ticket reveals that cancelling a payment dumps you on the
+      homepage with an abandoned cart and no explanation.
+    </p>
+    <p>
+      Nobody decided that. It was a side effect of a line of code, in a diff that was reviewed for its
+      payment logic.
+    </p>
+
+    <h2>The review problem</h2>
+    <p>
+      Flows are among the most consequential decisions in an app and among the least reviewable. To answer
+      "what happens when I tap Cancel" from a pull request, a reviewer has to read the component, resolve
+      the router config, and hold the screen graph in their head. So they don't. They review the payment
+      logic, which is legible, and the navigation goes through unexamined.
+    </p>
+    <p>
+      Meanwhile the people who <em>should</em> weigh in — whoever owns the product, whoever owns support —
+      can't read the diff at all.
+    </p>
+
+    <h2>What it looks like when flow is a first-class thing</h2>
+    <p>
+      In <code>.ux</code>, navigation isn't buried in an implementation detail. It's the arrow, and a change to
+      it is a change to one line:
+    </p>
+<pre><code>  screen Checkout
+     needs signed-in
+     intent "Take payment and confirm the order"
+-    action "Cancel" -&gt; Catalog
++    action "Cancel" -&gt; Cart</code></pre>
+    <p>
+      That diff is reviewable by someone who has never opened a React file. It doesn't require a preview
+      deploy or a walkthrough. And it can happen <em>before</em> the screen is built, when changing your mind
+      costs a line instead of a sprint.
+    </p>
+
+    <h2>Two things the checker adds to review</h2>
+    <p>
+      First, it catches the changes a reviewer would have to be superhuman to spot. Repoint one arrow and
+      a screen can become unreachable — not broken, just orphaned, with no route to it from anywhere:
+    </p>
+<pre><code>ux/screens/receipt.ux:3  UX201  Nothing links to `Receipt`, so no one can reach it.
+  fix:  add an action on another screen:  action "…" -&gt; Receipt</code></pre>
+    <p>
+      Second, every screen has to say why it exists. <code>intent</code> is required — one line, plain language,
+      or the file doesn't check:
+    </p>
+<pre><code>screen Checkout
+  intent "Take payment and confirm the order"</code></pre>
+    <p>
+      That line costs nothing to write and it's the thing a reviewer reads first. It's also what makes the
+      whole file worth reading six months later, when the author has left and the screen is called
+      <code>CheckoutV2Final</code>.
+    </p>
+
+    <h2>Where this stops working</h2>
+    <p>
+      A <code>.ux</code> file describes structure and flow, deliberately not appearance. It will tell you that
+      Cancel goes back to the cart. It will not tell you that the button is the wrong shade of grey, or that
+      the form is unusable on a small screen. Those still need eyes on a real build.
+    </p>
+    <p>
+      What it buys you is that the decisions which are <em>structural</em> get reviewed structurally, instead
+      of being smuggled through inside a payment diff.
+    </p>
+
+    <p style="margin-top:2.5rem"><a href="../use-cases.html">← All use cases</a></p>
+  </article>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ux-lang — a language for what your interface means</title>
-<meta name="description" content="A small declarative language for what a user interface means. Catches the bugs a compiler can't — like a screen nobody can leave.">
+<meta name="description" content="A small declarative language for what a user interface means. Catches the bugs a compiler cannot, like a screen nobody can leave.">
 </head>
 <body>
 <style>
@@ -79,8 +79,53 @@ body {
   padding: 0 1.5rem;
 }
 
-/* Sections hang off a left gutter that holds the label, echoing the way
-   app.map pads screen names into a column so the arrows line up. */
+/* ---- nav ------------------------------------------------------------ */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.5rem;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.brand .mark { color: var(--accent); flex: none; }
+
+.nav-links { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-links a:hover { color: var(--ink); }
+.nav-links a[aria-current="page"] { color: var(--accent); }
+.nav-gh {
+  border: 1px solid var(--rule);
+  padding: 0.3rem 0.7rem;
+}
+.nav-gh:hover { border-color: var(--accent); }
+
+/* ---- bands ---------------------------------------------------------- */
+
 .band {
   display: grid;
   grid-template-columns: var(--gutter) minmax(0, 1fr);
@@ -88,8 +133,7 @@ body {
   padding: 4.5rem 0;
   border-top: 1px solid var(--rule);
 }
-.band:first-of-type { border-top: 0; }
-
+.band.first { border-top: 0; }
 .band > .label {
   font-size: 0.7rem;
   letter-spacing: 0.16em;
@@ -98,18 +142,17 @@ body {
   padding-top: 0.45rem;
   font-weight: 500;
 }
-
 .band > .body { min-width: 0; }
 
 @media (max-width: 800px) {
-  .band { grid-template-columns: minmax(0, 1fr); gap: 0.85rem; }
+  .band { grid-template-columns: minmax(0, 1fr); gap: 0.85rem; padding: 3rem 0; }
   .band > .label { padding-top: 0; }
 }
 
+/* ---- type ----------------------------------------------------------- */
+
 h1, h2, h3 { font-family: var(--mono); font-weight: 600; text-wrap: balance; margin: 0; }
 
-/* Monospace headlines run far wider than a proportional face at the same
-   size, so this scale is set against the column width, not by eye. */
 h1 {
   font-size: clamp(1.75rem, 4.1vw, 2.65rem);
   line-height: 1.1;
@@ -121,11 +164,7 @@ h2 {
   letter-spacing: -0.025em;
   margin-bottom: 1rem;
 }
-h3 {
-  font-size: 0.95rem;
-  letter-spacing: -0.01em;
-  margin-bottom: 0.4rem;
-}
+h3 { font-size: 0.95rem; letter-spacing: -0.01em; margin-bottom: 0.4rem; }
 
 p, li {
   font-family: var(--serif);
@@ -135,12 +174,11 @@ p, li {
   max-width: var(--measure);
 }
 p { margin: 0 0 1rem; }
-p:last-child, ul:last-child { margin-bottom: 0; }
-ul { margin: 0 0 1rem; padding-left: 1.1rem; }
+p:last-child, ul:last-child, ol:last-child { margin-bottom: 0; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.1rem; }
 li { margin-bottom: 0.4rem; }
 
 strong { color: var(--ink); font-weight: 600; }
-em { font-style: italic; }
 
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible, textarea:focus-visible {
@@ -170,9 +208,17 @@ pre {
 }
 pre code { background: none; padding: 0; font-size: inherit; }
 
-/* ---- hero ---------------------------------------------------------- */
+blockquote {
+  margin: 0 0 1.25rem;
+  padding-left: 1.1rem;
+  border-left: 2px solid var(--accent);
+  max-width: var(--measure);
+}
+blockquote p { color: var(--ink); font-style: italic; }
 
-.hero { padding: 5rem 0 2.5rem; }
+/* ---- hero ----------------------------------------------------------- */
+
+.hero { padding: 4rem 0 2.5rem; }
 .hero .lede {
   font-family: var(--serif);
   font-size: 1.22rem;
@@ -197,8 +243,6 @@ pre code { background: none; padding: 0; font-size: inherit; }
   gap: 3rem;
   align-items: start;
 }
-/* Grid items refuse to shrink below their content width unless told to, which
-   is how a long monospace headline ends up overrunning its own column. */
 .hero-grid > * { min-width: 0; }
 @media (max-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; } }
 
@@ -208,7 +252,6 @@ pre code { background: none; padding: 0; font-size: inherit; }
   display: inline-block;
   font-family: var(--mono);
   font-size: 0.82rem;
-  letter-spacing: 0.02em;
   padding: 0.6rem 1.1rem;
   border: 1px solid var(--accent);
   color: var(--accent);
@@ -219,9 +262,9 @@ pre code { background: none; padding: 0; font-size: inherit; }
 .btn.solid { background: var(--accent); color: var(--paper); }
 .btn.solid:hover { opacity: 0.88; }
 
-.note { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); margin-top: 0.9rem; }
+.note { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); margin-top: 0.9rem; max-width: var(--measure); }
 
-/* ---- playground ---------------------------------------------------- */
+/* ---- playground ----------------------------------------------------- */
 
 .pg {
   display: grid;
@@ -234,7 +277,6 @@ pre code { background: none; padding: 0; font-size: inherit; }
 @media (max-width: 860px) { .pg { grid-template-columns: minmax(0, 1fr); } }
 
 .pane { background: var(--card); display: flex; flex-direction: column; min-width: 0; }
-
 .pane-head {
   display: flex;
   justify-content: space-between;
@@ -262,8 +304,7 @@ pre code { background: none; padding: 0; font-size: inherit; }
   width: 100%;
   tab-size: 2;
   white-space: pre;
-  overflow-wrap: normal;
-  overflow-x: auto;
+  overflow: auto;
 }
 
 #out {
@@ -307,7 +348,7 @@ pre code { background: none; padding: 0; font-size: inherit; }
 }
 .try:hover { border-color: var(--accent); color: var(--accent); }
 
-/* ---- misc ---------------------------------------------------------- */
+/* ---- cards, cases, posts -------------------------------------------- */
 
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.75rem; }
 .cols p { font-size: 1rem; }
@@ -323,16 +364,106 @@ pre code { background: none; padding: 0; font-size: inherit; }
 }
 .steps li::before { content: "->"; position: absolute; left: 0; color: var(--accent); }
 
-footer { border-top: 1px solid var(--rule); padding: 2.5rem 0 4rem; }
-footer p { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); max-width: none; }
+.case {
+  border-top: 1px solid var(--rule);
+  padding: 2rem 0;
+}
+.case:first-of-type { border-top: 0; padding-top: 0; }
+.case .who {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+.case h3 { font-size: 1.15rem; margin-bottom: 0.6rem; letter-spacing: -0.02em; }
+
+.post-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.4rem 0;
+  border-top: 1px solid var(--rule);
+  text-decoration: none;
+}
+.post-card:hover .post-title { color: var(--accent); }
+.post-meta {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.post-title {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.post-stand { font-family: var(--serif); font-size: 1rem; color: var(--ink-soft); max-width: var(--measure); }
+
+/* Prose stays at the reading measure; code runs a little wider, because
+   real terminal output has line lengths prose doesn't. */
+.article { max-width: 74ch; }
+.article p, .article li, .article .stand { max-width: var(--measure); }
+.article .post-meta { display: block; margin-bottom: 0.9rem; }
+.article h1 { font-size: clamp(1.55rem, 3.4vw, 2.15rem); margin-bottom: 0.9rem; }
+.article .stand {
+  font-family: var(--serif);
+  font-size: 1.18rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin-bottom: 2rem;
+}
+.article h2 { font-size: 1.15rem; margin-top: 2.25rem; }
+.article pre { max-width: none; }
+
+.legal p, .legal li { font-size: 1rem; }
+.fill {
+  background: var(--signal-dim);
+  color: var(--signal);
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 0.05em 0.35em;
+}
+
+/* ---- footer --------------------------------------------------------- */
+
+footer { border-top: 1px solid var(--rule); padding: 3rem 0 4rem; margin-top: 2rem; }
+.foot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+@media (max-width: 700px) { .foot-grid { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; } }
+.foot-brand { margin-bottom: 0.7rem; }
+.foot-head {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+footer p { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); max-width: 40ch; line-height: 1.85; }
+.foot-note { border-top: 1px solid var(--rule); padding-top: 1.5rem; max-width: none; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
 </style>
 
-<div class="wrap">
-
+<nav class="nav">
+  <a class="brand" href="index.html"><svg class="mark" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <rect x="2.5" y="4.5" width="12" height="15" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M9.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M17 8.5 20.5 12 17 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>ux-lang</span></a>
+  <div class="nav-links"><a href="index.html" aria-current="page">Overview</a><a href="use-cases.html">Use cases</a><a href="blog/">Blog</a><a href="terms.html">Terms</a><a class="nav-gh" href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a></div>
+</nav>
+<main class="wrap" id="top">
   <header class="hero">
     <div class="eyebrow">ux-lang · Apache-2.0</div>
     <div class="hero-grid">
@@ -466,6 +597,32 @@ NewTask -&gt; Inbox</code></pre>
   </section>
 
   <section class="band">
+    <div class="label">Where it fits</div>
+    <div class="body">
+      <h2>Four places this earns its keep.</h2>
+      <div class="cols">
+        <div>
+          <h3>Building with an AI</h3>
+          <p>The <code>.ux</code> is the durable record. Change a line, regenerate, and nothing silently disappears.</p>
+        </div>
+        <div>
+          <h3>Reviewing a flow</h3>
+          <p>Navigation becomes a one-page diff a reviewer can actually read, before any code exists.</p>
+        </div>
+        <div>
+          <h3>Joining a codebase</h3>
+          <p><code>app.map</code> answers "how does this app fit together" in four lines instead of forty files.</p>
+        </div>
+        <div>
+          <h3>Guarding CI</h3>
+          <p><code>ux check</code> exits non-zero on a dead end, so a stuck user is a failed build.</p>
+        </div>
+      </div>
+      <p style="margin-top:1.5rem"><a href="use-cases.html">Read the use cases in full →</a></p>
+    </div>
+  </section>
+
+  <section class="band">
     <div class="label">With Claude Code</div>
     <div class="body">
       <h2>There's no compiler. The model is the compiler.</h2>
@@ -515,17 +672,8 @@ ux check examples/tasks/ux
     </div>
   </section>
 
-  <footer>
-    <p>
-      Apache-2.0 · <a href="https://github.com/Arunachalamkalimuthu/ux-lang">github.com/Arunachalamkalimuthu/ux-lang</a>
-    </p>
-    <p>The patent grant is deliberate: a format is only worth having if other people can implement it without asking.</p>
-  </footer>
-
-</div>
-
 <script type="module">
-// ---- src/diagnostics.js ----------------------------------------------
+// ---- src/diagnostics.js ------------------------------------------
 const ERROR = 'error';
 const WARNING = 'warning';
 
@@ -537,7 +685,7 @@ function hasErrors(diags) {
   return diags.some(d => d.severity === ERROR);
 }
 
-// ---- src/parse-line.js -----------------------------------------------
+// ---- src/parse-line.js -------------------------------------------
 // Index of the first occurrence of `needle` that is not inside a double-quoted string.
 function indexOutsideString(text, needle) {
   let inString = false;
@@ -580,7 +728,7 @@ function words(text) {
   return text.trim().split(/\s+/).filter(Boolean);
 }
 
-// ---- src/lexer.js ----------------------------------------------------
+// ---- src/lexer.js ------------------------------------------------
 // The one walk that decides what "inside a string" means for a raw line —
 // used both to strip a trailing `#` comment (stop at `#` only when *not*
 // inside a string) and to detect an unterminated string (UX004: still
@@ -665,7 +813,7 @@ function treeify(lines) {
   return root;
 }
 
-// ---- src/parser.js ---------------------------------------------------
+// ---- src/parser.js -----------------------------------------------
 const PRIMITIVE_TYPES = new Set([
   'text', 'number', 'int', 'bool', 'date', 'time', 'datetime',
   'money', 'email', 'url', 'phone', 'image', 'file', 'id', 'secret',
@@ -1099,7 +1247,7 @@ function parseDottedCall(text) {
   };
 }
 
-// ---- src/check.js ----------------------------------------------------
+// ---- src/check.js ------------------------------------------------
 const STATE_RULES = [
   ['empty', 'UX102', 'empty "Nothing here yet."'],
   ['loading', 'UX103', 'loading skeleton 3 rows'],
@@ -1205,7 +1353,7 @@ function describe(state) {
   return 'unable to load';
 }
 
-// ---- src/linker.js ---------------------------------------------------
+// ---- src/linker.js -----------------------------------------------
 // Verbs a screen can send an `action` at that are handled by the runtime, not
 // by the app's own navigation graph — so they need no declared `screen` or
 // `flow`, and (deliberately) create no edge: they don't take the user
@@ -1571,7 +1719,7 @@ function declaredParams(screen) {
   return screen.params ?? [];
 }
 
-// ---- src/map.js ------------------------------------------------------
+// ---- src/map.js --------------------------------------------------
 function renderMap({ screens, edges, entry }) {
   const names = [...screens.keys()];
   const ordered = entry ? [entry, ...names.filter(n => n !== entry)] : names;
@@ -1584,7 +1732,7 @@ function renderMap({ screens, edges, entry }) {
   }).join('\n');
 }
 
-// ---- src/report.js ---------------------------------------------------
+// ---- src/report.js -----------------------------------------------
 function renderDiagnostics(diags) {
   if (diags.length === 0) return 'No problems found.';
 
@@ -1679,14 +1827,11 @@ const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&g
 function run() {
   const source = editor.value;
   let diags = [];
-  let programs = [];
 
   try {
     const { ast, diags: parseDiags } = parse(source, 'ux/app.ux');
-    programs = [ast];
     diags = [...parseDiags, ...check(ast)];
-    const linked = link(programs);
-    diags = sortDiagnostics([...diags, ...linked.diags]);
+    diags = sortDiagnostics([...diags, ...link([ast]).diags]);
   } catch (error) {
     out.innerHTML = '<span class="d-code">The playground hit an unexpected error.</span>\n' +
       esc(String(error && error.message ? error.message : error));
@@ -1695,8 +1840,6 @@ function run() {
     return;
   }
 
-  const errors = diags.filter(d => d.severity === 'error').length;
-
   if (diags.length === 0) {
     out.innerHTML = '<span class="d-clean">No problems found.</span>';
     stat.textContent = 'clean';
@@ -1704,6 +1847,7 @@ function run() {
     return;
   }
 
+  const errors = diags.filter(d => d.severity === 'error').length;
   const lexical = diags.filter(d => LEXICAL.has(d.code)).length;
   const banner = lexical > 0
     ? `<span class="d-banner">${lexical} lexical error(s). Fix these first — anything below may be derived from a broken line.</span>`
@@ -1737,5 +1881,27 @@ editor.value = SAMPLE;
 run();
 </script>
 
+</main>
+<div class="wrap"><footer>
+  <div class="foot-grid">
+    <div>
+      <div class="brand foot-brand"><svg class="mark" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <rect x="2.5" y="4.5" width="12" height="15" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M9.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M17 8.5 20.5 12 17 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>ux-lang</span></div>
+      <p>A small declarative language for what a user interface means.</p>
+    </div>
+    <div>
+      <p class="foot-head">Project</p>
+      <p><a href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a><br><a href="use-cases.html">Use cases</a><br><a href="blog/">Blog</a></p>
+    </div>
+    <div>
+      <p class="foot-head">Legal</p>
+      <p><a href="terms.html">Terms</a><br>Apache-2.0</p>
+    </div>
+  </div>
+  <p class="foot-note">The patent grant is deliberate: a format is only worth having if other people can implement it without asking.</p>
+</footer></div>
 </body>
 </html>

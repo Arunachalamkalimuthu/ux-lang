@@ -70,8 +70,53 @@ body {
   padding: 0 1.5rem;
 }
 
-/* Sections hang off a left gutter that holds the label, echoing the way
-   app.map pads screen names into a column so the arrows line up. */
+/* ---- nav ------------------------------------------------------------ */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.5rem;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.brand .mark { color: var(--accent); flex: none; }
+
+.nav-links { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-links a:hover { color: var(--ink); }
+.nav-links a[aria-current="page"] { color: var(--accent); }
+.nav-gh {
+  border: 1px solid var(--rule);
+  padding: 0.3rem 0.7rem;
+}
+.nav-gh:hover { border-color: var(--accent); }
+
+/* ---- bands ---------------------------------------------------------- */
+
 .band {
   display: grid;
   grid-template-columns: var(--gutter) minmax(0, 1fr);
@@ -79,8 +124,7 @@ body {
   padding: 4.5rem 0;
   border-top: 1px solid var(--rule);
 }
-.band:first-of-type { border-top: 0; }
-
+.band.first { border-top: 0; }
 .band > .label {
   font-size: 0.7rem;
   letter-spacing: 0.16em;
@@ -89,18 +133,17 @@ body {
   padding-top: 0.45rem;
   font-weight: 500;
 }
-
 .band > .body { min-width: 0; }
 
 @media (max-width: 800px) {
-  .band { grid-template-columns: minmax(0, 1fr); gap: 0.85rem; }
+  .band { grid-template-columns: minmax(0, 1fr); gap: 0.85rem; padding: 3rem 0; }
   .band > .label { padding-top: 0; }
 }
 
+/* ---- type ----------------------------------------------------------- */
+
 h1, h2, h3 { font-family: var(--mono); font-weight: 600; text-wrap: balance; margin: 0; }
 
-/* Monospace headlines run far wider than a proportional face at the same
-   size, so this scale is set against the column width, not by eye. */
 h1 {
   font-size: clamp(1.75rem, 4.1vw, 2.65rem);
   line-height: 1.1;
@@ -112,11 +155,7 @@ h2 {
   letter-spacing: -0.025em;
   margin-bottom: 1rem;
 }
-h3 {
-  font-size: 0.95rem;
-  letter-spacing: -0.01em;
-  margin-bottom: 0.4rem;
-}
+h3 { font-size: 0.95rem; letter-spacing: -0.01em; margin-bottom: 0.4rem; }
 
 p, li {
   font-family: var(--serif);
@@ -126,12 +165,11 @@ p, li {
   max-width: var(--measure);
 }
 p { margin: 0 0 1rem; }
-p:last-child, ul:last-child { margin-bottom: 0; }
-ul { margin: 0 0 1rem; padding-left: 1.1rem; }
+p:last-child, ul:last-child, ol:last-child { margin-bottom: 0; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.1rem; }
 li { margin-bottom: 0.4rem; }
 
 strong { color: var(--ink); font-weight: 600; }
-em { font-style: italic; }
 
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible, textarea:focus-visible {
@@ -161,9 +199,17 @@ pre {
 }
 pre code { background: none; padding: 0; font-size: inherit; }
 
-/* ---- hero ---------------------------------------------------------- */
+blockquote {
+  margin: 0 0 1.25rem;
+  padding-left: 1.1rem;
+  border-left: 2px solid var(--accent);
+  max-width: var(--measure);
+}
+blockquote p { color: var(--ink); font-style: italic; }
 
-.hero { padding: 5rem 0 2.5rem; }
+/* ---- hero ----------------------------------------------------------- */
+
+.hero { padding: 4rem 0 2.5rem; }
 .hero .lede {
   font-family: var(--serif);
   font-size: 1.22rem;
@@ -188,8 +234,6 @@ pre code { background: none; padding: 0; font-size: inherit; }
   gap: 3rem;
   align-items: start;
 }
-/* Grid items refuse to shrink below their content width unless told to, which
-   is how a long monospace headline ends up overrunning its own column. */
 .hero-grid > * { min-width: 0; }
 @media (max-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; } }
 
@@ -199,7 +243,6 @@ pre code { background: none; padding: 0; font-size: inherit; }
   display: inline-block;
   font-family: var(--mono);
   font-size: 0.82rem;
-  letter-spacing: 0.02em;
   padding: 0.6rem 1.1rem;
   border: 1px solid var(--accent);
   color: var(--accent);
@@ -210,9 +253,9 @@ pre code { background: none; padding: 0; font-size: inherit; }
 .btn.solid { background: var(--accent); color: var(--paper); }
 .btn.solid:hover { opacity: 0.88; }
 
-.note { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); margin-top: 0.9rem; }
+.note { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); margin-top: 0.9rem; max-width: var(--measure); }
 
-/* ---- playground ---------------------------------------------------- */
+/* ---- playground ----------------------------------------------------- */
 
 .pg {
   display: grid;
@@ -225,7 +268,6 @@ pre code { background: none; padding: 0; font-size: inherit; }
 @media (max-width: 860px) { .pg { grid-template-columns: minmax(0, 1fr); } }
 
 .pane { background: var(--card); display: flex; flex-direction: column; min-width: 0; }
-
 .pane-head {
   display: flex;
   justify-content: space-between;
@@ -253,8 +295,7 @@ pre code { background: none; padding: 0; font-size: inherit; }
   width: 100%;
   tab-size: 2;
   white-space: pre;
-  overflow-wrap: normal;
-  overflow-x: auto;
+  overflow: auto;
 }
 
 #out {
@@ -298,7 +339,7 @@ pre code { background: none; padding: 0; font-size: inherit; }
 }
 .try:hover { border-color: var(--accent); color: var(--accent); }
 
-/* ---- misc ---------------------------------------------------------- */
+/* ---- cards, cases, posts -------------------------------------------- */
 
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.75rem; }
 .cols p { font-size: 1rem; }
@@ -314,16 +355,106 @@ pre code { background: none; padding: 0; font-size: inherit; }
 }
 .steps li::before { content: "->"; position: absolute; left: 0; color: var(--accent); }
 
-footer { border-top: 1px solid var(--rule); padding: 2.5rem 0 4rem; }
-footer p { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); max-width: none; }
+.case {
+  border-top: 1px solid var(--rule);
+  padding: 2rem 0;
+}
+.case:first-of-type { border-top: 0; padding-top: 0; }
+.case .who {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+.case h3 { font-size: 1.15rem; margin-bottom: 0.6rem; letter-spacing: -0.02em; }
+
+.post-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.4rem 0;
+  border-top: 1px solid var(--rule);
+  text-decoration: none;
+}
+.post-card:hover .post-title { color: var(--accent); }
+.post-meta {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.post-title {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.post-stand { font-family: var(--serif); font-size: 1rem; color: var(--ink-soft); max-width: var(--measure); }
+
+/* Prose stays at the reading measure; code runs a little wider, because
+   real terminal output has line lengths prose doesn't. */
+.article { max-width: 74ch; }
+.article p, .article li, .article .stand { max-width: var(--measure); }
+.article .post-meta { display: block; margin-bottom: 0.9rem; }
+.article h1 { font-size: clamp(1.55rem, 3.4vw, 2.15rem); margin-bottom: 0.9rem; }
+.article .stand {
+  font-family: var(--serif);
+  font-size: 1.18rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin-bottom: 2rem;
+}
+.article h2 { font-size: 1.15rem; margin-top: 2.25rem; }
+.article pre { max-width: none; }
+
+.legal p, .legal li { font-size: 1rem; }
+.fill {
+  background: var(--signal-dim);
+  color: var(--signal);
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 0.05em 0.35em;
+}
+
+/* ---- footer --------------------------------------------------------- */
+
+footer { border-top: 1px solid var(--rule); padding: 3rem 0 4rem; margin-top: 2rem; }
+.foot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+@media (max-width: 700px) { .foot-grid { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; } }
+.foot-brand { margin-bottom: 0.7rem; }
+.foot-head {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+footer p { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); max-width: 40ch; line-height: 1.85; }
+.foot-note { border-top: 1px solid var(--rule); padding-top: 1.5rem; max-width: none; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
 </style>
 
-<div class="wrap">
-
+<nav class="nav">
+  <a class="brand" href="#top"><svg class="mark" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <rect x="2.5" y="4.5" width="12" height="15" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M9.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M17 8.5 20.5 12 17 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>ux-lang</span></a>
+  <div class="nav-links"><a href="#top" aria-current="page">Overview</a><a href="#use-cases">Use cases</a><a href="#blog">Blog</a><a href="#terms">Terms</a><a class="nav-gh" href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a></div>
+</nav>
+<main class="wrap" id="top">
   <header class="hero">
     <div class="eyebrow">ux-lang · Apache-2.0</div>
     <div class="hero-grid">
@@ -457,6 +588,32 @@ NewTask -&gt; Inbox</code></pre>
   </section>
 
   <section class="band">
+    <div class="label">Where it fits</div>
+    <div class="body">
+      <h2>Four places this earns its keep.</h2>
+      <div class="cols">
+        <div>
+          <h3>Building with an AI</h3>
+          <p>The <code>.ux</code> is the durable record. Change a line, regenerate, and nothing silently disappears.</p>
+        </div>
+        <div>
+          <h3>Reviewing a flow</h3>
+          <p>Navigation becomes a one-page diff a reviewer can actually read, before any code exists.</p>
+        </div>
+        <div>
+          <h3>Joining a codebase</h3>
+          <p><code>app.map</code> answers "how does this app fit together" in four lines instead of forty files.</p>
+        </div>
+        <div>
+          <h3>Guarding CI</h3>
+          <p><code>ux check</code> exits non-zero on a dead end, so a stuck user is a failed build.</p>
+        </div>
+      </div>
+      <p style="margin-top:1.5rem"><a href="#use-cases">Read the use cases in full →</a></p>
+    </div>
+  </section>
+
+  <section class="band">
     <div class="label">With Claude Code</div>
     <div class="body">
       <h2>There's no compiler. The model is the compiler.</h2>
@@ -506,17 +663,8 @@ ux check examples/tasks/ux
     </div>
   </section>
 
-  <footer>
-    <p>
-      Apache-2.0 · <a href="https://github.com/Arunachalamkalimuthu/ux-lang">github.com/Arunachalamkalimuthu/ux-lang</a>
-    </p>
-    <p>The patent grant is deliberate: a format is only worth having if other people can implement it without asking.</p>
-  </footer>
-
-</div>
-
 <script type="module">
-// ---- src/diagnostics.js ----------------------------------------------
+// ---- src/diagnostics.js ------------------------------------------
 const ERROR = 'error';
 const WARNING = 'warning';
 
@@ -528,7 +676,7 @@ function hasErrors(diags) {
   return diags.some(d => d.severity === ERROR);
 }
 
-// ---- src/parse-line.js -----------------------------------------------
+// ---- src/parse-line.js -------------------------------------------
 // Index of the first occurrence of `needle` that is not inside a double-quoted string.
 function indexOutsideString(text, needle) {
   let inString = false;
@@ -571,7 +719,7 @@ function words(text) {
   return text.trim().split(/\s+/).filter(Boolean);
 }
 
-// ---- src/lexer.js ----------------------------------------------------
+// ---- src/lexer.js ------------------------------------------------
 // The one walk that decides what "inside a string" means for a raw line —
 // used both to strip a trailing `#` comment (stop at `#` only when *not*
 // inside a string) and to detect an unterminated string (UX004: still
@@ -656,7 +804,7 @@ function treeify(lines) {
   return root;
 }
 
-// ---- src/parser.js ---------------------------------------------------
+// ---- src/parser.js -----------------------------------------------
 const PRIMITIVE_TYPES = new Set([
   'text', 'number', 'int', 'bool', 'date', 'time', 'datetime',
   'money', 'email', 'url', 'phone', 'image', 'file', 'id', 'secret',
@@ -1090,7 +1238,7 @@ function parseDottedCall(text) {
   };
 }
 
-// ---- src/check.js ----------------------------------------------------
+// ---- src/check.js ------------------------------------------------
 const STATE_RULES = [
   ['empty', 'UX102', 'empty "Nothing here yet."'],
   ['loading', 'UX103', 'loading skeleton 3 rows'],
@@ -1196,7 +1344,7 @@ function describe(state) {
   return 'unable to load';
 }
 
-// ---- src/linker.js ---------------------------------------------------
+// ---- src/linker.js -----------------------------------------------
 // Verbs a screen can send an `action` at that are handled by the runtime, not
 // by the app's own navigation graph — so they need no declared `screen` or
 // `flow`, and (deliberately) create no edge: they don't take the user
@@ -1562,7 +1710,7 @@ function declaredParams(screen) {
   return screen.params ?? [];
 }
 
-// ---- src/map.js ------------------------------------------------------
+// ---- src/map.js --------------------------------------------------
 function renderMap({ screens, edges, entry }) {
   const names = [...screens.keys()];
   const ordered = entry ? [entry, ...names.filter(n => n !== entry)] : names;
@@ -1575,7 +1723,7 @@ function renderMap({ screens, edges, entry }) {
   }).join('\n');
 }
 
-// ---- src/report.js ---------------------------------------------------
+// ---- src/report.js -----------------------------------------------
 function renderDiagnostics(diags) {
   if (diags.length === 0) return 'No problems found.';
 
@@ -1670,14 +1818,11 @@ const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&g
 function run() {
   const source = editor.value;
   let diags = [];
-  let programs = [];
 
   try {
     const { ast, diags: parseDiags } = parse(source, 'ux/app.ux');
-    programs = [ast];
     diags = [...parseDiags, ...check(ast)];
-    const linked = link(programs);
-    diags = sortDiagnostics([...diags, ...linked.diags]);
+    diags = sortDiagnostics([...diags, ...link([ast]).diags]);
   } catch (error) {
     out.innerHTML = '<span class="d-code">The playground hit an unexpected error.</span>\n' +
       esc(String(error && error.message ? error.message : error));
@@ -1686,8 +1831,6 @@ function run() {
     return;
   }
 
-  const errors = diags.filter(d => d.severity === 'error').length;
-
   if (diags.length === 0) {
     out.innerHTML = '<span class="d-clean">No problems found.</span>';
     stat.textContent = 'clean';
@@ -1695,6 +1838,7 @@ function run() {
     return;
   }
 
+  const errors = diags.filter(d => d.severity === 'error').length;
   const lexical = diags.filter(d => LEXICAL.has(d.code)).length;
   const banner = lexical > 0
     ? `<span class="d-banner">${lexical} lexical error(s). Fix these first — anything below may be derived from a broken line.</span>`
@@ -1727,3 +1871,618 @@ for (const button of document.querySelectorAll('.try')) {
 editor.value = SAMPLE;
 run();
 </script>
+
+<div id="use-cases"></div>
+  <header class="hero">
+    <div class="eyebrow">Use cases</div>
+    <h1>Where a <code>.ux</code> file earns its keep.</h1>
+    <p class="lede">
+      The common thread: <b>somebody needs to know what the app is supposed to do</b>, and the code is
+      the wrong place to ask. These are the situations where that costs you something real.
+    </p>
+  </header>
+
+  <section class="band first">
+    <div class="label">Building</div>
+    <div class="body">
+      <div class="case">
+        <h3>The regeneration that loses a step</h3>
+        <p>
+          You ask for a change to the checkout screen. The model rewrites four files, and the "resend
+          verification code" link that used to sit under the phone field is gone. Nothing errored. No test
+          covered it, because no test knew it was supposed to be there.
+        </p>
+        <p>
+          This happens because the app's shape lives only in the generated code, and the model can't hold
+          forty files at once. With a <code>.ux</code> file, the shape lives in one page it always sees. You change
+          one line, regenerate, and what you didn't touch stays.
+        </p>
+        <p><a href="#the-regeneration-problem">The regeneration problem →</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">Review</div>
+    <div class="body">
+      <div class="case">
+        <h3>Reviewing a flow before the code exists</h3>
+        <p>
+          "Where does Cancel go?" is a product decision, but today it is only answerable by reading a
+          component tree or clicking through a preview build. So it gets decided by whoever wrote the
+          component, at 2am, by accident.
+        </p>
+        <p>
+          A <code>.ux</code> diff shows a flow change as a flow change:
+        </p>
+<pre><code>  screen Checkout
+     intent "Take payment and confirm the order"
+-    action "Cancel" -&gt; Cart
++    action "Cancel" -&gt; Catalog</code></pre>
+        <p>
+          That is reviewable by someone who doesn't read React, in a pull request, before anything is built.
+        </p>
+        <p><a href="#reviewing-a-ui-before-it-exists">Reviewing a UI before it exists →</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">CI</div>
+    <div class="body">
+      <div class="case">
+        <h3>Making a stuck user a failed build</h3>
+        <p>
+          A screen with no way out isn't a crash. It renders, it passes type-checking, every unit test is
+          green, and a person who lands there has to kill the app. Nothing in a normal toolchain has the
+          concept needed to notice.
+        </p>
+<pre><code>$ ux check ux/
+ux/screens/confirm.ux:4  UX202  `Confirm` has no way out — a user who lands here is stuck.
+  fix:  add an action that leaves:  action "Back" -&gt; Cart
+
+1 error(s)
+$ echo $?
+1</code></pre>
+        <p>
+          Same for a link to a screen nobody wrote, a screen nothing links to, and a list with no empty
+          state. All of them exit non-zero, so they fail the build like anything else.
+        </p>
+        <p><a href="#dead-ends-are-not-crashes">Dead ends are not crashes →</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">Onboarding</div>
+    <div class="body">
+      <div class="case">
+        <h3>Answering "how does this fit together"</h3>
+        <p>
+          The first week on a new codebase is spent reconstructing a map that exists in nobody's head and
+          no file. <code>ux map</code> prints it:
+        </p>
+<pre><code>Catalog       -&gt; Cart | ProductDetail
+ProductDetail -&gt; Cart | Catalog
+Cart          -&gt; Catalog | Checkout | ProductDetail
+Checkout      -&gt; Cart | Catalog</code></pre>
+        <p>
+          Four lines, generated from the source, so it can't be out of date the way a wiki diagram always is.
+          It's also what you hand a model before asking it to change anything.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">Completeness</div>
+    <div class="body">
+      <div class="case">
+        <h3>Forcing the states everyone skips</h3>
+        <p>
+          Generated UI is almost always the happy path. The list renders beautifully with three items and
+          has nothing to say when the fetch fails, the result is empty, or it's still loading — because
+          nothing ever made anyone decide.
+        </p>
+        <p>
+          In <code>.ux</code> a list without all three states doesn't check. It isn't a lint warning you can turn off;
+          the file is invalid. It's the most opinionated rule in the language and the one that changes the
+          most about what gets shipped.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="label">Later</div>
+    <div class="body">
+      <div class="case">
+        <h3>Agents that navigate a site instead of scraping it</h3>
+        <p>
+          The same format read in the other direction: an indexer walks a live page's accessibility tree and
+          writes <code>.ux</code>. An agent then plans a route through a semantic map — a few hundred tokens, stable
+          across redeploys — instead of paying tens of thousands of tokens for DOM that is mostly class hashes.
+        </p>
+        <p>
+          This is specified in the format design and deliberately not built. It's the larger half of the idea,
+          and it needs the authoring half to be solid first.
+        </p>
+      </div>
+    </div>
+  </section>
+
+<div id="blog"></div>
+  <header class="hero">
+    <div class="eyebrow">Blog</div>
+    <h1>Problems worth a language.</h1>
+    <p class="lede">
+      Writing about the failures <code>.ux</code> exists to catch — <b>the ones that ship green</b>, with no
+      exception, no failing test, and nothing to grep for.
+    </p>
+  </header>
+
+  <section class="band first">
+    <div class="label">Posts</div>
+    <div class="body">
+<a class="post-card" href="#the-regeneration-problem">
+  <span class="post-meta">2026-08-09 · 6 min</span>
+  <span class="post-title">The regeneration problem</span>
+  <span class="post-stand">Why an AI rewrite quietly loses a step, and what has to exist for it not to.</span>
+</a>
+<a class="post-card" href="#reviewing-a-ui-before-it-exists">
+  <span class="post-meta">2026-08-09 · 5 min</span>
+  <span class="post-title">Reviewing a UI before it exists</span>
+  <span class="post-stand">Flows are decisions. They should be reviewable in a pull request, not discovered in staging.</span>
+</a>
+<a class="post-card" href="#dead-ends-are-not-crashes">
+  <span class="post-meta">2026-08-09 · 5 min</span>
+  <span class="post-title">Dead ends are not crashes</span>
+  <span class="post-stand">The class of defect that ships green: no exception, no failing test, and a user with nowhere to go.</span>
+</a>
+    </div>
+  </section>
+
+<div id="the-regeneration-problem"></div>
+  <article class="article">
+    <span class="post-meta">2026-08-09 · 6 min</span>
+    <h1>The regeneration problem</h1>
+    <p class="stand">
+      Ask an AI to change one screen and it rewrites four files. Something you never mentioned quietly
+      disappears. This is not a model failure — it's a missing artifact.
+    </p>
+
+    <p>
+      Here is the shape of it. You have a checkout screen. Under the phone field there's a
+      <em>resend verification code</em> link, added three weeks ago after someone complained. You ask for
+      an unrelated change: move the order summary above the payment form.
+    </p>
+    <p>
+      The model rewrites the screen. The summary moves. The resend link is gone.
+    </p>
+    <p>
+      Nothing errored. TypeScript is happy — the link was markup, not a type. No test failed, because no
+      test knew the link was supposed to exist; it was added by hand, in a hurry, and nobody wrote a test
+      for a link. You find out when a user emails you, or you don't find out.
+    </p>
+
+    <h2>Why it happens</h2>
+    <p>
+      Not because the model is careless. Because the only place that link existed was inside forty files of
+      implementation, and the model was shown four of them.
+    </p>
+    <p>
+      Every regeneration is a lossy round trip: the intent goes in as a prompt, comes out as code, and the
+      prompt is thrown away. Next time, the model has to recover the intent <em>from the code</em> — and it
+      only reads the part of the code you handed it. Anything outside that window is not forgotten, exactly.
+      It was never known.
+    </p>
+    <blockquote>
+      <p>
+        The generated code cannot be the record of what the app is supposed to be. It's the output. Outputs
+        don't remember their inputs.
+      </p>
+    </blockquote>
+
+    <h2>What would have to exist</h2>
+    <p>
+      Something that states the app's shape, that is small enough to be read in full every single time, and
+      that is the thing you edit rather than the thing you regenerate.
+    </p>
+    <p>
+      Small is the hard requirement. A design document doesn't work, because nobody updates it and no model
+      reads it. A test suite doesn't work, because tests assert behaviour, not structure, and you'd need one
+      per link. It has to be short enough that "read the whole thing" is the default, not an effort.
+    </p>
+    <p>
+      That is what a <code>.ux</code> file is. Twenty lines for a screen, including the link:
+    </p>
+<pre><code>screen Checkout
+  needs signed-in
+  intent "Take payment and confirm the order"
+
+  show order.total
+
+  form Order
+    phone required
+    submit "Pay" -&gt; pay(order)
+
+  action "Resend code" -&gt; resendCode(order)
+  action "Back to cart" -&gt; Cart</code></pre>
+    <p>
+      Now the change is a one-line edit to the <code>.ux</code>, and the generated code is disposable. Regenerate
+      the whole thing from scratch if you like — the resend action is still declared, so it's still there.
+    </p>
+
+    <h2>The part that surprised me</h2>
+    <p>
+      I expected the value to be in generating code. It isn't. The value is that the file is small enough
+      to be read completely, which changes what the model can reason about.
+    </p>
+    <p>
+      A model editing one screen also reads <code>app.map</code> — the navigation graph, four lines for a small
+      app — and can therefore tell that the screen it's editing is the only route to two others. That's a
+      fact about the whole system, available while editing one file. You cannot get that from forty files
+      you didn't load.
+    </p>
+
+    <h2>The honest limitation</h2>
+    <p>
+      This only holds while the <code>.ux</code> stays ahead of the code. The moment someone hand-edits the
+      generated output and doesn't reflect it back, the source of truth is a lie — and today nothing
+      enforces that. Generated files are marked with a comment and the convention is to regenerate rather
+      than patch, but a convention is not a guarantee.
+    </p>
+    <p>
+      It's a real weakness, and it's worth knowing before you build a workflow on this.
+    </p>
+
+    <p style="margin-top:2.5rem"><a href="#use-cases">← All use cases</a></p>
+  </article>
+
+<div id="reviewing-a-ui-before-it-exists"></div>
+  <article class="article">
+    <span class="post-meta">2026-08-09 · 5 min</span>
+    <h1>Reviewing a UI before it exists</h1>
+    <p class="stand">
+      "Where does Cancel go?" is a product decision. Today it gets made by whoever wrote the component,
+      at 2am, by accident.
+    </p>
+
+    <p>
+      Think about how a navigation decision actually gets made on most teams.
+    </p>
+    <p>
+      Someone builds a checkout screen. It needs a Cancel button. They write
+      <code>navigate(-1)</code>, or they push to <code>/cart</code>, or they route home — whichever felt right
+      while they were deep in a payment integration and Cancel was the least interesting thing on screen.
+      It ships. Nine months later a support ticket reveals that cancelling a payment dumps you on the
+      homepage with an abandoned cart and no explanation.
+    </p>
+    <p>
+      Nobody decided that. It was a side effect of a line of code, in a diff that was reviewed for its
+      payment logic.
+    </p>
+
+    <h2>The review problem</h2>
+    <p>
+      Flows are among the most consequential decisions in an app and among the least reviewable. To answer
+      "what happens when I tap Cancel" from a pull request, a reviewer has to read the component, resolve
+      the router config, and hold the screen graph in their head. So they don't. They review the payment
+      logic, which is legible, and the navigation goes through unexamined.
+    </p>
+    <p>
+      Meanwhile the people who <em>should</em> weigh in — whoever owns the product, whoever owns support —
+      can't read the diff at all.
+    </p>
+
+    <h2>What it looks like when flow is a first-class thing</h2>
+    <p>
+      In <code>.ux</code>, navigation isn't buried in an implementation detail. It's the arrow, and a change to
+      it is a change to one line:
+    </p>
+<pre><code>  screen Checkout
+     needs signed-in
+     intent "Take payment and confirm the order"
+-    action "Cancel" -&gt; Catalog
++    action "Cancel" -&gt; Cart</code></pre>
+    <p>
+      That diff is reviewable by someone who has never opened a React file. It doesn't require a preview
+      deploy or a walkthrough. And it can happen <em>before</em> the screen is built, when changing your mind
+      costs a line instead of a sprint.
+    </p>
+
+    <h2>Two things the checker adds to review</h2>
+    <p>
+      First, it catches the changes a reviewer would have to be superhuman to spot. Repoint one arrow and
+      a screen can become unreachable — not broken, just orphaned, with no route to it from anywhere:
+    </p>
+<pre><code>ux/screens/receipt.ux:3  UX201  Nothing links to `Receipt`, so no one can reach it.
+  fix:  add an action on another screen:  action "…" -&gt; Receipt</code></pre>
+    <p>
+      Second, every screen has to say why it exists. <code>intent</code> is required — one line, plain language,
+      or the file doesn't check:
+    </p>
+<pre><code>screen Checkout
+  intent "Take payment and confirm the order"</code></pre>
+    <p>
+      That line costs nothing to write and it's the thing a reviewer reads first. It's also what makes the
+      whole file worth reading six months later, when the author has left and the screen is called
+      <code>CheckoutV2Final</code>.
+    </p>
+
+    <h2>Where this stops working</h2>
+    <p>
+      A <code>.ux</code> file describes structure and flow, deliberately not appearance. It will tell you that
+      Cancel goes back to the cart. It will not tell you that the button is the wrong shade of grey, or that
+      the form is unusable on a small screen. Those still need eyes on a real build.
+    </p>
+    <p>
+      What it buys you is that the decisions which are <em>structural</em> get reviewed structurally, instead
+      of being smuggled through inside a payment diff.
+    </p>
+
+    <p style="margin-top:2.5rem"><a href="#use-cases">← All use cases</a></p>
+  </article>
+
+<div id="dead-ends-are-not-crashes"></div>
+  <article class="article">
+    <span class="post-meta">2026-08-09 · 5 min</span>
+    <h1>Dead ends are not crashes</h1>
+    <p class="stand">
+      A screen with no way out throws no exception, fails no test, and renders perfectly. That's exactly
+      why it ships.
+    </p>
+
+    <p>
+      Every tool in a normal build pipeline is looking for a moment where the program is wrong about
+      itself. A type error: this value isn't what you said it was. A failing test: this function returned
+      the wrong thing. A crash: this operation was impossible.
+    </p>
+    <p>
+      Now consider a confirmation screen with no back button, no close, no continue. Nothing about it is
+      wrong in that sense. The types are fine. It renders. It's fast. Every assertion anyone wrote about it
+      passes. The only problem is that a person who arrives has nowhere to go, and no tool in the pipeline
+      has a concept of "a person" or "go".
+    </p>
+
+    <h2>The class of bug</h2>
+    <p>
+      These share a shape: <strong>correct code, wrong system</strong>. A few examples that all pass a normal
+      build:
+    </p>
+    <ul>
+      <li>A screen nothing links to. It exists, it works, nobody can reach it.</li>
+      <li>A link to a screen that was renamed. In a typed router you'd catch it; in most apps it's a string.</li>
+      <li>A list that renders three items beautifully and shows a blank rectangle when the fetch fails.</li>
+      <li>A screen whose only exit runs a flow that navigates nowhere — a button that appears to leave and doesn't.</li>
+    </ul>
+    <p>
+      None of these is detectable from one file. They're all facts about how the pieces relate, which means
+      you need something holding the whole graph to see them.
+    </p>
+
+    <h2>What catching them looks like</h2>
+    <p>
+      Because <code>.ux</code> records where every action leads, the graph exists as data, and the questions
+      become mechanical:
+    </p>
+<pre><code>$ ux check ux/
+ux/screens/confirm.ux:4  UX202  `Confirm` has no way out — a user who lands here is stuck.
+  fix:  add an action that leaves:  action "Back" -&gt; Cart
+
+ux/screens/inbox.ux:12  UX200  `Inbox` links to `Detials`, which does not exist.
+  fix:  add `screen Detials` or `flow Detials`, or fix the spelling
+
+2 error(s)
+$ echo $?
+1</code></pre>
+    <p>
+      Non-zero exit, so it fails a build like anything else. Add <code>ux check ux/</code> to CI and a stuck user
+      becomes a red pipeline rather than a support ticket.
+    </p>
+
+    <h2>The detail that took three attempts to get right</h2>
+    <p>
+      Deciding what counts as "a way out" is where this gets subtle, and getting it wrong makes the check
+      worse than useless.
+    </p>
+    <p>
+      A screen whose only action invokes a <em>flow</em> looked, at first, like a dead end — the arrow doesn't
+      point at a screen. But if that flow ends in <code>go Inbox</code>, the user plainly does leave. Reporting
+      it was a false alarm on a perfectly good app, and a checker that cries wolf gets muted, which costs
+      you every real finding too.
+    </p>
+    <p>
+      The opposite mistake is just as bad. A self-loop — <code>action "Refresh" -&gt; Home</code> on Home — is
+      technically an edge, and counting it means a genuinely stuck screen passes. So does
+      <code>action retry</code> on a failed list: it re-runs the load, it doesn't take you anywhere.
+    </p>
+    <p>
+      The rule that survived: an exit is an edge to a <em>different</em> screen, and a flow contributes the
+      screens its <code>go</code> steps lead to. A flow with no <code>go</code> contributes nothing — correctly, since
+      it leaves you where you were.
+    </p>
+
+    <h2>Why a language and not a linter</h2>
+    <p>
+      You could write this as a lint rule over React. People have tried, and it's hard for a reason: you'd
+      have to recover the navigation graph from router configuration, conditional pushes, and callbacks
+      passed three components deep. The information is technically present and practically unrecoverable.
+    </p>
+    <p>
+      The graph is easy to check when navigation is a declaration rather than a side effect. That's the
+      whole argument for a separate language: not that <code>.ux</code> is nicer to write than JSX, but that it
+      makes a specific class of question answerable.
+    </p>
+
+    <p style="margin-top:2.5rem"><a href="#use-cases">← All use cases</a></p>
+  </article>
+
+<div id="terms"></div>
+  <header class="hero">
+    <div class="eyebrow">Legal</div>
+    <h1>Terms of use.</h1>
+    <p class="lede">
+      These terms cover <b>this website</b>. The software itself is governed by the Apache&nbsp;License&nbsp;2.0,
+      which grants you far more than any page here does.
+    </p>
+    <p class="note">
+      Last updated 9 August 2026. Items marked <span class="fill">[ FILL IN ]</span> must be completed before
+      this page is published, and the whole page should be reviewed by a qualified adviser — it was drafted
+      to be readable, not to be legal advice.
+    </p>
+  </header>
+
+  <section class="band first legal">
+    <div class="label">01</div>
+    <div class="body">
+      <h2>Who we are</h2>
+      <p>
+        This website is operated by BYTESTWENTYFOUR SOLUTIONS PRIVATE LIMITED
+        ("we", "us"), a company registered in <span class="fill">[ JURISDICTION ]</span> with company
+        number <span class="fill">[ COMPANY NUMBER ]</span>, registered office
+        <span class="fill">[ REGISTERED ADDRESS ]</span>.
+      </p>
+      <p>Questions about these terms: <span class="fill">[ CONTACT EMAIL ]</span>.</p>
+    </div>
+  </section>
+
+  <section class="band legal">
+    <div class="label">02</div>
+    <div class="body">
+      <h2>The software is separately licensed</h2>
+      <p>
+        ux-lang is open source under the <strong>Apache License, Version 2.0</strong>. Your rights to use,
+        modify, distribute and build commercial products on the software come from that licence, not from
+        this page, and nothing here limits them.
+      </p>
+      <p>
+        The full text ships in the repository. In plain terms it lets you do essentially anything with the
+        software, including commercially, provided you keep the copyright and licence notices and state what
+        you changed. It also grants a patent licence, which is why it was chosen: a format is only worth
+        having if other people can implement it without asking.
+      </p>
+      <p>
+        Where this page and the Apache licence disagree about the software, <strong>the licence wins</strong>.
+      </p>
+    </div>
+  </section>
+
+  <section class="band legal">
+    <div class="label">03</div>
+    <div class="body">
+      <h2>What this site does with your data</h2>
+      <p>Nothing.</p>
+      <p>
+        There are no accounts, no sign-in, no forms, no newsletter, no analytics, no advertising and no
+        third-party trackers. The interactive playground runs entirely in your browser — the code you type
+        into it is never transmitted anywhere, because there is no server to transmit it to.
+      </p>
+      <p>
+        If the site is served through a host such as GitHub Pages, that host may keep its own request logs
+        under its own policies, which we neither control nor receive.
+      </p>
+    </div>
+  </section>
+
+  <section class="band legal">
+    <div class="label">04</div>
+    <div class="body">
+      <h2>Using the site</h2>
+      <p>You may read, quote and link to this site freely. Please don't:</p>
+      <ul>
+        <li>present its content as your own, or strip attribution from material you reuse;</li>
+        <li>attempt to disrupt or gain unauthorised access to the site or its hosting;</li>
+        <li>use our name or marks in a way that implies we endorse your product.</li>
+      </ul>
+      <p>
+        Site content — the writing and design on these pages, as distinct from the software — is
+        © 2026 BYTESTWENTYFOUR SOLUTIONS PRIVATE LIMITED, all rights reserved, unless a page says otherwise.
+      </p>
+    </div>
+  </section>
+
+  <section class="band legal">
+    <div class="label">05</div>
+    <div class="body">
+      <h2>No warranty</h2>
+      <p>
+        The site and the software are provided <strong>"as is", without warranty of any kind</strong>, express
+        or implied, including but not limited to warranties of merchantability, fitness for a particular
+        purpose and non-infringement.
+      </p>
+      <p>
+        We say this plainly rather than in capitals because it matters: this project is early. Documented
+        limitations are listed openly on the site, and there will be undocumented ones. Diagnostics may miss
+        real defects and, despite considerable effort, may occasionally report ones that aren't there. Don't
+        rely on it as the only check on anything that matters.
+      </p>
+    </div>
+  </section>
+
+  <section class="band legal">
+    <div class="label">06</div>
+    <div class="body">
+      <h2>Limitation of liability</h2>
+      <p>
+        To the fullest extent permitted by law, we are not liable for any indirect, incidental, special,
+        consequential or exemplary damages, or for any loss of profits, data, goodwill or business
+        opportunity, arising out of your use of this site or the software.
+      </p>
+      <p>
+        Nothing in these terms excludes or limits liability that cannot lawfully be excluded — including
+        liability for death or personal injury caused by negligence, or for fraud.
+      </p>
+    </div>
+  </section>
+
+  <section class="band legal">
+    <div class="label">07</div>
+    <div class="body">
+      <h2>Links out</h2>
+      <p>
+        This site links to third-party sites, including source-code hosting and documentation we don't
+        control. We're not responsible for their content, availability or practices, and a link is not an
+        endorsement.
+      </p>
+    </div>
+  </section>
+
+  <section class="band legal">
+    <div class="label">08</div>
+    <div class="body">
+      <h2>Changes, and governing law</h2>
+      <p>
+        We may update these terms. The date at the top of this page shows when they last changed, and
+        continuing to use the site after a change means you accept the revised terms.
+      </p>
+      <p>
+        These terms are governed by the laws of <span class="fill">[ GOVERNING LAW ]</span>, and the courts
+        of <span class="fill">[ JURISDICTION ]</span> have exclusive jurisdiction over any dispute arising
+        from them.
+      </p>
+    </div>
+  </section>
+
+</main>
+<div class="wrap"><footer>
+  <div class="foot-grid">
+    <div>
+      <div class="brand foot-brand"><svg class="mark" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <rect x="2.5" y="4.5" width="12" height="15" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M9.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M17 8.5 20.5 12 17 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>ux-lang</span></div>
+      <p>A small declarative language for what a user interface means.</p>
+    </div>
+    <div>
+      <p class="foot-head">Project</p>
+      <p><a href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a><br><a href="#use-cases.html">Use cases</a><br><a href="#blog/">Blog</a></p>
+    </div>
+    <div>
+      <p class="foot-head">Legal</p>
+      <p><a href="#terms.html">Terms</a><br>Apache-2.0</p>
+    </div>
+  </div>
+  <p class="foot-note">The patent grant is deliberate: a format is only worth having if other people can implement it without asking.</p>
+</footer></div>

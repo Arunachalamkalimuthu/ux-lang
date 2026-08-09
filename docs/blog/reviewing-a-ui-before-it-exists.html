@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reviewing a UI before it exists — ux-lang</title>
+<meta name="description" content="Flows are decisions. They should be reviewable in a pull request, not discovered in staging.">
+</head>
+<body>
+<style>
+:root {
+  --paper:      #EEF1F0;
+  --paper-sunk: #E4E9E7;
+  --card:       #F7F9F8;
+  --ink:        #121A1C;
+  --ink-soft:   #3D4B4C;
+  --muted:      #66787A;
+  --rule:       #D2DAD8;
+  --accent:     #0B6E6B;
+  --accent-dim: #0B6E6B22;
+  --signal:     #A8511B;
+  --signal-dim: #A8511B1A;
+  --ok:         #1F6F45;
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --serif: "Iowan Old Style", Charter, "Bitstream Charter", Georgia, serif;
+
+  --measure: 64ch;
+  --gutter: 9rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #0D1315;
+    --paper-sunk: #080D0F;
+    --card:       #131B1D;
+    --ink:        #E3EAE8;
+    --ink-soft:   #B3C2C0;
+    --muted:      #7E9290;
+    --rule:       #212E30;
+    --accent:     #56B8B2;
+    --accent-dim: #56B8B222;
+    --signal:     #DE9256;
+    --signal-dim: #DE92561A;
+    --ok:         #5FBE8C;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:      #0D1315;
+  --paper-sunk: #080D0F;
+  --card:       #131B1D;
+  --ink:        #E3EAE8;
+  --ink-soft:   #B3C2C0;
+  --muted:      #7E9290;
+  --rule:       #212E30;
+  --accent:     #56B8B2;
+  --accent-dim: #56B8B222;
+  --signal:     #DE9256;
+  --signal-dim: #DE92561A;
+  --ok:         #5FBE8C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: calc(var(--gutter) + var(--measure) + 8rem);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ---- nav ------------------------------------------------------------ */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.5rem;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.brand .mark { color: var(--accent); flex: none; }
+
+.nav-links { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-links a:hover { color: var(--ink); }
+.nav-links a[aria-current="page"] { color: var(--accent); }
+.nav-gh {
+  border: 1px solid var(--rule);
+  padding: 0.3rem 0.7rem;
+}
+.nav-gh:hover { border-color: var(--accent); }
+
+/* ---- bands ---------------------------------------------------------- */
+
+.band {
+  display: grid;
+  grid-template-columns: var(--gutter) minmax(0, 1fr);
+  gap: 0 2.5rem;
+  padding: 4.5rem 0;
+  border-top: 1px solid var(--rule);
+}
+.band.first { border-top: 0; }
+.band > .label {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 0.45rem;
+  font-weight: 500;
+}
+.band > .body { min-width: 0; }
+
+@media (max-width: 800px) {
+  .band { grid-template-columns: minmax(0, 1fr); gap: 0.85rem; padding: 3rem 0; }
+  .band > .label { padding-top: 0; }
+}
+
+/* ---- type ----------------------------------------------------------- */
+
+h1, h2, h3 { font-family: var(--mono); font-weight: 600; text-wrap: balance; margin: 0; }
+
+h1 {
+  font-size: clamp(1.75rem, 4.1vw, 2.65rem);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+h2 {
+  font-size: clamp(1.25rem, 2.6vw, 1.6rem);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  margin-bottom: 1rem;
+}
+h3 { font-size: 0.95rem; letter-spacing: -0.01em; margin-bottom: 0.4rem; }
+
+p, li {
+  font-family: var(--serif);
+  font-size: 1.06rem;
+  line-height: 1.62;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}
+p { margin: 0 0 1rem; }
+p:last-child, ul:last-child, ol:last-child { margin-bottom: 0; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.1rem; }
+li { margin-bottom: 0.4rem; }
+
+strong { color: var(--ink); font-weight: 600; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--accent-dim);
+  padding: 0.08em 0.34em;
+  border-radius: 2px;
+}
+p code, li code { color: var(--ink); }
+
+pre {
+  font-family: var(--mono);
+  font-size: 0.83rem;
+  line-height: 1.68;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  padding: 1.1rem 1.25rem;
+  overflow-x: auto;
+  margin: 0 0 1.25rem;
+  tab-size: 2;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+blockquote {
+  margin: 0 0 1.25rem;
+  padding-left: 1.1rem;
+  border-left: 2px solid var(--accent);
+  max-width: var(--measure);
+}
+blockquote p { color: var(--ink); font-style: italic; }
+
+/* ---- hero ----------------------------------------------------------- */
+
+.hero { padding: 4rem 0 2.5rem; }
+.hero .lede {
+  font-family: var(--serif);
+  font-size: 1.22rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 58ch;
+  margin: 1.35rem 0 2rem;
+}
+.hero .lede b { color: var(--ink); font-weight: 600; }
+
+.eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: 3rem;
+  align-items: start;
+}
+.hero-grid > * { min-width: 0; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; } }
+
+.actions { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center; }
+
+.btn {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.btn:hover { background: var(--accent-dim); }
+.btn.solid { background: var(--accent); color: var(--paper); }
+.btn.solid:hover { opacity: 0.88; }
+
+.note { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); margin-top: 0.9rem; max-width: var(--measure); }
+
+/* ---- playground ----------------------------------------------------- */
+
+.pg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin-top: 1.5rem;
+}
+@media (max-width: 860px) { .pg { grid-template-columns: minmax(0, 1fr); } }
+
+.pane { background: var(--card); display: flex; flex-direction: column; min-width: 0; }
+.pane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--paper-sunk);
+}
+
+#src {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.65;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  resize: vertical;
+  padding: 0.9rem;
+  min-height: 27rem;
+  width: 100%;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+#out {
+  margin: 0;
+  padding: 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.62;
+  min-height: 27rem;
+  overflow: auto;
+  border: 0;
+  background: transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.d-code   { color: var(--signal); font-weight: 600; }
+.d-where  { color: var(--muted); }
+.d-fix    { color: var(--accent); }
+.d-clean  { color: var(--ok); }
+.d-banner { color: var(--signal); background: var(--signal-dim); display: block; padding: 0.35rem 0.5rem; margin-bottom: 0.75rem; }
+
+.chip {
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+}
+.chip.bad { color: var(--signal); }
+.chip.good { color: var(--ok); }
+
+.tryline { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.9rem; }
+.try {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+.try:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- cards, cases, posts -------------------------------------------- */
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.75rem; }
+.cols p { font-size: 1rem; }
+
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; max-width: var(--measure); }
+.steps li {
+  font-family: var(--mono);
+  font-size: 0.83rem;
+  color: var(--ink-soft);
+  padding-left: 1.6rem;
+  position: relative;
+  margin: 0;
+}
+.steps li::before { content: "->"; position: absolute; left: 0; color: var(--accent); }
+
+.case {
+  border-top: 1px solid var(--rule);
+  padding: 2rem 0;
+}
+.case:first-of-type { border-top: 0; padding-top: 0; }
+.case .who {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+.case h3 { font-size: 1.15rem; margin-bottom: 0.6rem; letter-spacing: -0.02em; }
+
+.post-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.4rem 0;
+  border-top: 1px solid var(--rule);
+  text-decoration: none;
+}
+.post-card:hover .post-title { color: var(--accent); }
+.post-meta {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.post-title {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.post-stand { font-family: var(--serif); font-size: 1rem; color: var(--ink-soft); max-width: var(--measure); }
+
+/* Prose stays at the reading measure; code runs a little wider, because
+   real terminal output has line lengths prose doesn't. */
+.article { max-width: 74ch; }
+.article p, .article li, .article .stand { max-width: var(--measure); }
+.article .post-meta { display: block; margin-bottom: 0.9rem; }
+.article h1 { font-size: clamp(1.55rem, 3.4vw, 2.15rem); margin-bottom: 0.9rem; }
+.article .stand {
+  font-family: var(--serif);
+  font-size: 1.18rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin-bottom: 2rem;
+}
+.article h2 { font-size: 1.15rem; margin-top: 2.25rem; }
+.article pre { max-width: none; }
+
+.legal p, .legal li { font-size: 1rem; }
+.fill {
+  background: var(--signal-dim);
+  color: var(--signal);
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 0.05em 0.35em;
+}
+
+/* ---- footer --------------------------------------------------------- */
+
+footer { border-top: 1px solid var(--rule); padding: 3rem 0 4rem; margin-top: 2rem; }
+.foot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+@media (max-width: 700px) { .foot-grid { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; } }
+.foot-brand { margin-bottom: 0.7rem; }
+.foot-head {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+footer p { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); max-width: 40ch; line-height: 1.85; }
+.foot-note { border-top: 1px solid var(--rule); padding-top: 1.5rem; max-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+
+<nav class="nav">
+  <a class="brand" href="../index.html"><svg class="mark" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <rect x="2.5" y="4.5" width="12" height="15" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M9.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M17 8.5 20.5 12 17 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>ux-lang</span></a>
+  <div class="nav-links"><a href="../index.html">Overview</a><a href="../use-cases.html">Use cases</a><a href="../blog/" aria-current="page">Blog</a><a href="../terms.html">Terms</a><a class="nav-gh" href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a></div>
+</nav>
+<main class="wrap" id="top">
+  <article class="article">
+    <span class="post-meta">2026-08-09 · 5 min</span>
+    <h1>Reviewing a UI before it exists</h1>
+    <p class="stand">
+      "Where does Cancel go?" is a product decision. Today it gets made by whoever wrote the component,
+      at 2am, by accident.
+    </p>
+
+    <p>
+      Think about how a navigation decision actually gets made on most teams.
+    </p>
+    <p>
+      Someone builds a checkout screen. It needs a Cancel button. They write
+      <code>navigate(-1)</code>, or they push to <code>/cart</code>, or they route home — whichever felt right
+      while they were deep in a payment integration and Cancel was the least interesting thing on screen.
+      It ships. Nine months later a support ticket reveals that cancelling a payment dumps you on the
+      homepage with an abandoned cart and no explanation.
+    </p>
+    <p>
+      Nobody decided that. It was a side effect of a line of code, in a diff that was reviewed for its
+      payment logic.
+    </p>
+
+    <h2>The review problem</h2>
+    <p>
+      Flows are among the most consequential decisions in an app and among the least reviewable. To answer
+      "what happens when I tap Cancel" from a pull request, a reviewer has to read the component, resolve
+      the router config, and hold the screen graph in their head. So they don't. They review the payment
+      logic, which is legible, and the navigation goes through unexamined.
+    </p>
+    <p>
+      Meanwhile the people who <em>should</em> weigh in — whoever owns the product, whoever owns support —
+      can't read the diff at all.
+    </p>
+
+    <h2>What it looks like when flow is a first-class thing</h2>
+    <p>
+      In <code>.ux</code>, navigation isn't buried in an implementation detail. It's the arrow, and a change to
+      it is a change to one line:
+    </p>
+<pre><code>  screen Checkout
+     needs signed-in
+     intent "Take payment and confirm the order"
+-    action "Cancel" -&gt; Catalog
++    action "Cancel" -&gt; Cart</code></pre>
+    <p>
+      That diff is reviewable by someone who has never opened a React file. It doesn't require a preview
+      deploy or a walkthrough. And it can happen <em>before</em> the screen is built, when changing your mind
+      costs a line instead of a sprint.
+    </p>
+
+    <h2>Two things the checker adds to review</h2>
+    <p>
+      First, it catches the changes a reviewer would have to be superhuman to spot. Repoint one arrow and
+      a screen can become unreachable — not broken, just orphaned, with no route to it from anywhere:
+    </p>
+<pre><code>ux/screens/receipt.ux:3  UX201  Nothing links to `Receipt`, so no one can reach it.
+  fix:  add an action on another screen:  action "…" -&gt; Receipt</code></pre>
+    <p>
+      Second, every screen has to say why it exists. <code>intent</code> is required — one line, plain language,
+      or the file doesn't check:
+    </p>
+<pre><code>screen Checkout
+  intent "Take payment and confirm the order"</code></pre>
+    <p>
+      That line costs nothing to write and it's the thing a reviewer reads first. It's also what makes the
+      whole file worth reading six months later, when the author has left and the screen is called
+      <code>CheckoutV2Final</code>.
+    </p>
+
+    <h2>Where this stops working</h2>
+    <p>
+      A <code>.ux</code> file describes structure and flow, deliberately not appearance. It will tell you that
+      Cancel goes back to the cart. It will not tell you that the button is the wrong shade of grey, or that
+      the form is unusable on a small screen. Those still need eyes on a real build.
+    </p>
+    <p>
+      What it buys you is that the decisions which are <em>structural</em> get reviewed structurally, instead
+      of being smuggled through inside a payment diff.
+    </p>
+
+    <p style="margin-top:2.5rem"><a href="../use-cases.html">← All use cases</a></p>
+  </article>
+
+</main>
+<div class="wrap"><footer>
+  <div class="foot-grid">
+    <div>
+      <div class="brand foot-brand"><svg class="mark" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <rect x="2.5" y="4.5" width="12" height="15" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M9.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M17 8.5 20.5 12 17 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg><span>ux-lang</span></div>
+      <p>A small declarative language for what a user interface means.</p>
+    </div>
+    <div>
+      <p class="foot-head">Project</p>
+      <p><a href="https://github.com/Arunachalamkalimuthu/ux-lang">GitHub</a><br><a href="../use-cases.html">Use cases</a><br><a href="../blog/">Blog</a></p>
+    </div>
+    <div>
+      <p class="foot-head">Legal</p>
+      <p><a href="../terms.html">Terms</a><br>Apache-2.0</p>
+    </div>
+  </div>
+  <p class="foot-note">The patent grant is deliberate: a format is only worth having if other people can implement it without asking.</p>
+</footer></div>
+</body>
+</html>
