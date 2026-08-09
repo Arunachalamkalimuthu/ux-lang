@@ -4,7 +4,13 @@
   "description": "A small declarative language for describing what a user interface means",
   "license": "Apache-2.0",
   "type": "module",
-  "bin": { "ux": "./bin/ux" },
-  "scripts": { "test": "node --test \"test/*.test.js\"" },
-  "engines": { "node": ">=20" }
+  "bin": {
+    "ux": "./bin/ux"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

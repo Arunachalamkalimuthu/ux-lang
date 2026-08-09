@@ -10,6 +10,15 @@ changes. A rule is retired rather than repurposed.
 
 ## [Unreleased]
 
+### Fixed
+
+- `npm test` now runs on Node 20, not only 22. The script quoted its glob,
+  which leaves expansion to Node — something Node only learned to do after 20 —
+  so on the version the project claims as its floor the suite silently found no
+  files. Caught by CI on its first run. The unquoted form lets the shell expand
+  it and works on both; `node --test test/` is not an alternative, because Node
+  22 resolves the directory as a module path.
+
 ## [0.1.0] — 2026-08-09
 
 First public release. The language, the toolchain that checks it, and the plugin
