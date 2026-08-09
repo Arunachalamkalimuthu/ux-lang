@@ -339,6 +339,52 @@ blockquote p { color: var(--ink); font-style: italic; }
 }
 .try:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ---- figures -------------------------------------------------------- */
+
+.figure { margin: 0 0 1.5rem; }
+.fig-svg {
+  display: block;
+  width: 100%;
+  max-width: 44rem;
+  height: auto;
+  overflow: visible;
+}
+
+/* Screens: a filled tile with a hairline, matching the code blocks so the
+   diagram reads as part of the same material rather than clip art. */
+.fig-node rect { fill: var(--card); stroke: var(--rule); stroke-width: 1.5; }
+.fig-node text {
+  fill: var(--ink);
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+/* Navigation is the accent colour everywhere else on the site; keeping it
+   here is what makes the missing arrow legible as an absence. */
+.fig-edge path { fill: none; stroke: var(--accent); stroke-width: 2; }
+
+.fig-stuck rect { stroke: var(--signal); stroke-width: 2; }
+.fig-stuck text { fill: var(--signal); }
+.fig-stuck-mark path { stroke: var(--signal); stroke-width: 2; stroke-linecap: round; }
+.fig-stuck-mark text {
+  fill: var(--signal);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+}
+
+figcaption {
+  font-family: var(--serif);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: var(--measure);
+  margin-top: 0.9rem;
+}
+
 /* ---- cards, cases, posts -------------------------------------------- */
 
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.75rem; }
@@ -583,6 +629,45 @@ NewTask -&gt; Inbox</code></pre>
     <div class="label">Diagnostics</div>
     <div class="body">
       <h2>Every error names its own fix.</h2>
+      <figure class="figure" role="group" aria-labelledby="deadend-cap">
+        <svg viewBox="0 0 700 210" class="fig-svg" role="img" aria-label="Three screens joined by arrows. Cart leads to Checkout, Checkout leads back to Cart and on to Receipt. Receipt has no arrow leaving it, so a person who reaches it cannot go anywhere.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+
+          <g class="fig-node">
+            <rect x="8" y="34" width="168" height="58" rx="4"/>
+            <text x="92" y="69">Cart</text>
+          </g>
+          <g class="fig-node">
+            <rect x="262" y="34" width="168" height="58" rx="4"/>
+            <text x="346" y="69">Checkout</text>
+          </g>
+          <g class="fig-node fig-stuck">
+            <rect x="516" y="34" width="168" height="58" rx="4"/>
+            <text x="600" y="69">Receipt</text>
+          </g>
+
+          <g class="fig-edge">
+            <path d="M182 55 H256" marker-end="url(#ar)"/>
+            <path d="M436 55 H510" marker-end="url(#ar)"/>
+            <path d="M330 98 V132 H108 V98" marker-end="url(#ar)"/>
+          </g>
+
+          <g class="fig-stuck-mark">
+            <path d="M600 98 v26"/>
+            <path d="M576 124 h48"/>
+            <text x="600" y="150">no way out</text>
+          </g>
+        </svg>
+        <figcaption id="deadend-cap">
+          <code>Receipt</code> compiles, renders and works. It is a room with no door — and the only tool
+          that can say so is one that knows where actions lead.
+        </figcaption>
+      </figure>
+
 <pre><code>inbox.ux:6  UX202  `Detail` has no way out — a user who lands here is stuck.
   fix:  add an action that leaves:  action "Back" -&gt; Inbox</code></pre>
       <div class="cols">

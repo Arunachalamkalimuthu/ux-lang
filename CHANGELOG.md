@@ -12,6 +12,11 @@ changes. A rule is retired rather than repurposed.
 
 ### Added
 
+- A diagram on the landing page showing what a dead end actually is: three
+  screens, arrows between them, and one with none leaving it. The claim was
+  only ever described in prose, and it is the one thing about this project that
+  is easier to see than to read. Inline SVG using the site's own colour tokens,
+  so it themes with the page and costs no request.
 - `ROADMAP.md`, rendered onto the site as a page from the same source. States
   the ordering principle plainly: nothing should happen before the adoption
   benchmark is actually run, because everything after it is a bet on an

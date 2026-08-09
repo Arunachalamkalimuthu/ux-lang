@@ -349,6 +349,52 @@ blockquote p { color: var(--ink); font-style: italic; }
 }
 .try:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ---- figures -------------------------------------------------------- */
+
+.figure { margin: 0 0 1.5rem; }
+.fig-svg {
+  display: block;
+  width: 100%;
+  max-width: 44rem;
+  height: auto;
+  overflow: visible;
+}
+
+/* Screens: a filled tile with a hairline, matching the code blocks so the
+   diagram reads as part of the same material rather than clip art. */
+.fig-node rect { fill: var(--card); stroke: var(--rule); stroke-width: 1.5; }
+.fig-node text {
+  fill: var(--ink);
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+/* Navigation is the accent colour everywhere else on the site; keeping it
+   here is what makes the missing arrow legible as an absence. */
+.fig-edge path { fill: none; stroke: var(--accent); stroke-width: 2; }
+
+.fig-stuck rect { stroke: var(--signal); stroke-width: 2; }
+.fig-stuck text { fill: var(--signal); }
+.fig-stuck-mark path { stroke: var(--signal); stroke-width: 2; stroke-linecap: round; }
+.fig-stuck-mark text {
+  fill: var(--signal);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+}
+
+figcaption {
+  font-family: var(--serif);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: var(--measure);
+  margin-top: 0.9rem;
+}
+
 /* ---- cards, cases, posts -------------------------------------------- */
 
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.75rem; }
