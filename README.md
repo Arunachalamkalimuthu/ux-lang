@@ -3,7 +3,7 @@
 [![CI](https://github.com/Arunachalamkalimuthu/ux-lang/actions/workflows/ci.yml/badge.svg)](https://github.com/Arunachalamkalimuthu/ux-lang/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-0B6E6B.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-0B6E6B.svg)](package.json)
-[![Dependencies](https://img.shields.io/badge/dependencies-none-0B6E6B.svg)](package.json)
+[![Toolchain dependencies](https://img.shields.io/badge/toolchain%20dependencies-none-0B6E6B.svg)](package.json)
 
 **A small declarative language for what a user interface *means*** — screens,
 what a person can do on them, and where every action leads. Then a checker that
@@ -189,14 +189,19 @@ bin/ux        the CLI; the only place that prints
 examples/     three worked projects, kept clean by CI
 plugin/       the Claude Code plugin: skill, grammar, codegen and import guides
 bench/        the adoption benchmark and a fidelity inspector
-site/         sources for the website; `node site/build.mjs` emits docs/
-docs/         the built site, served by GitHub Pages
+www/          the website — a Next.js app with its own dependencies
 test/         the suite
 ```
 
 Only `src/project.js` touches the filesystem. Everything else in `src/` is a
-pure function over strings, which is why the website's playground can run the
-real toolchain in a browser rather than a copy of it.
+pure function over strings, which is why the website's playground can import
+the real toolchain and run it in a browser rather than a copy of it.
+`test/browser-safe.test.js` fails if that ever stops being true.
+
+The **toolchain** has no dependencies and CI fails the build if one appears.
+The **website** is a separate package under `www/` with its own — that
+separation is the point, so the thing you install stays dependency-free even
+though the site does not.
 
 ## Status and limitations
 

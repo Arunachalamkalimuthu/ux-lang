@@ -29,7 +29,8 @@ app.** Run both numbers before and after a grammar change.
 
 ## Constraints that are not negotiable
 
-- **Zero dependencies**, runtime *and* dev. Node 20+ and the built-in test
+- **Zero dependencies in the toolchain**, runtime *and* dev. The website under
+  `www/` is a separate package and may have them; Node 20+ and the built-in test
   runner. CI fails the build if `package.json` grows a dependency, because the
   README promises a clean clone runs with no install.
 - **The grammar section of `SKILL.md` stays under 800 tokens.** Adding a
@@ -79,15 +80,19 @@ node --test test/parser-data.test.js    # one file (parser tests are split:
 node bin/ux check examples/tasks/ux
 node bin/ux lint  examples/tasks/ux
 node bin/ux fmt --check examples/tasks/ux
-node site/build.mjs                     # rebuild docs/ after changing src/ or site/
+cd www && npm install && npm run dev    # the website, at localhost:3000
 ```
 
 Tests come first. A parser change without a test that failed beforehand will be
 sent back.
 
-If you touch anything in `src/` or `site/`, run `node site/build.mjs` and commit
-the result — the website's playground inlines the real toolchain, and
-`test/site.test.js` fails when the committed pages go stale. CI checks it too.
+Nothing built is committed: the website is rebuilt from source on every deploy,
+so it cannot go stale. But it *imports* the toolchain out of `src/`, so a change
+there can break the site — CI builds it on every pull request for that reason.
+
+One rule protects that import: only `src/project.js` may touch the filesystem.
+Everything else has to stay a pure function over strings, or the playground can
+no longer run the real checker. `test/browser-safe.test.js` enforces it.
 
 ## Reporting a bug
 

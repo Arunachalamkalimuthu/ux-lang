@@ -1,4 +1,6 @@
-<style>
+/* Ported verbatim from the hand-rolled site. The design is unchanged by the
+   move to Next; only the machinery around it is. */
+
 :root {
   --paper:      #EEF1F0;
   --paper-sunk: #E4E9E7;
@@ -506,4 +508,3 @@ footer p { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); ma
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
-</style>
