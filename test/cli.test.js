@@ -254,3 +254,59 @@ test('no banner and unchanged ordering when there are no lexical errors', async 
   const { stdout } = await run('node', [CLI, 'check', join(dir, 'ux')]).catch(e => e);
   assert.doesNotMatch(stdout, /lexical error/);
 });
+
+// ---- ux fmt --------------------------------------------------------------
+
+const MESSY = {
+  'a.ux': 'app Demo\nscreen Home\n\t at /\n   intent "x"   \n\n\n\n  action "Go" -> Home\n',
+};
+
+test('fmt --check reports what would change, writes nothing, and exits 1', async () => {
+  const dir = await project(MESSY);
+  const before = await readFile(join(dir, 'ux', 'a.ux'), 'utf8');
+
+  // Caught by hand rather than with assert.rejects: its validator is not
+  // awaited, so an async one resolves to a pending Promise and every
+  // assertion inside is silently skipped.
+  let failure;
+  try {
+    await run('node', [CLI, 'fmt', '--check', join(dir, 'ux')]);
+  } catch (error) {
+    failure = error;
+  }
+
+  assert.ok(failure, 'fmt --check should exit non-zero when a file would change');
+  assert.equal(failure.code, 1);
+  assert.match(failure.stdout, /would be reformatted/);
+  assert.match(failure.stdout, /a\.ux/);
+  // The point of --check: the file on disk is untouched.
+  assert.equal(await readFile(join(dir, 'ux', 'a.ux'), 'utf8'), before);
+});
+
+test('fmt rewrites the file and is then a no-op', async () => {
+  const dir = await project(MESSY);
+  const { stdout } = await run('node', [CLI, 'fmt', join(dir, 'ux')]);
+  assert.match(stdout, /1 file\(s\) reformatted/);
+
+  const written = await readFile(join(dir, 'ux', 'a.ux'), 'utf8');
+  assert.ok(!written.includes('\t'), 'tabs survived');
+  assert.ok(!/[ \t]+\n/.test(written), 'trailing whitespace survived');
+
+  const second = await run('node', [CLI, 'fmt', join(dir, 'ux')]);
+  assert.match(second.stdout, /already formatted/);
+});
+
+test('fmt works on a project that does not parse', async () => {
+  // Formatting is text work. A file you cannot parse is exactly when you want
+  // it tidied, so fmt must not require a clean project first.
+  const dir = await project({ 'a.ux': 'screen Home\n\tsparkle "not a keyword"   \n' });
+  const { stdout } = await run('node', [CLI, 'fmt', join(dir, 'ux')]);
+  assert.match(stdout, /reformatted/);
+  assert.equal(await readFile(join(dir, 'ux', 'a.ux'), 'utf8'), 'screen Home\n  sparkle "not a keyword"\n');
+});
+
+test('fmt on an already-clean project exits 0 and says so', async () => {
+  const dir = await project(GOOD);
+  const { stdout } = await run('node', [CLI, 'fmt', '--check', join(dir, 'ux')]);
+  assert.match(stdout, /already formatted/);
+});

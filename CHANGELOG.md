@@ -10,7 +10,24 @@ changes. A rule is retired rather than repurposed.
 
 ## [Unreleased]
 
+### Added
+
+- `ux fmt` — canonical layout for `.ux` files, with `--check` for CI. It is
+  deliberately layout-only: two-space indentation, tabs converted, trailing
+  whitespace stripped, blank runs collapsed, one blank line between
+  declarations. It does not reorder declarations, align columns, or rewrite
+  keywords, because a formatter that changes meaning is worse than none. The
+  suite asserts the parse tree is identical before and after, for every example
+  in the repo.
+- Working on raw lines rather than re-printing the AST is what keeps comments —
+  the tree does not carry them, so a round trip would delete every one.
+
 ### Fixed
+
+- `UX002`'s suggested fix no longer changes how a file parses. It rounded the
+  indent up while the lexer floors it, so at three spaces the line was already
+  nested one level and following the advice to use four silently nested it two.
+  Found while building `ux fmt`, which has to agree with the lexer exactly.
 
 - `npm test` now runs on Node 20, not only 22. The script quoted its glob,
   which leaves expansion to Node — something Node only learned to do after 20 —

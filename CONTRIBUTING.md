@@ -78,6 +78,7 @@ node --test test/parser-data.test.js    # one file (parser tests are split:
                                         # parser-data / parser-flow / parser-screen)
 node bin/ux check examples/tasks/ux
 node bin/ux lint  examples/tasks/ux
+node bin/ux fmt --check examples/tasks/ux
 node site/build.mjs                     # rebuild docs/ after changing src/ or site/
 ```
 
