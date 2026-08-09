@@ -1,0 +1,63 @@
+# Changelog
+
+Notable changes to ux-lang. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
+[semantic versioning](https://semver.org/spec/v2.0.0.html) — with the usual
+pre-1.0 caveat that the grammar may still change in breaking ways.
+
+Diagnostic codes are the exception: once a code is assigned, its meaning never
+changes. A rule is retired rather than repurposed.
+
+## [Unreleased]
+
+## [0.1.0] — 2026-08-09
+
+First public release. The language, the toolchain that checks it, and the plugin
+that teaches it.
+
+### Language
+
+- Five declarations — `app`/`site`, `data`, `screen`, `component`, `flow` —
+  with indentation as the only block structure and no import statements.
+- Required `intent` on every screen, and required `empty`/`loading`/`error` on
+  every list. Both are hard errors rather than lint, because building only the
+  happy path is the usual failure of generated UI and nothing else forces
+  otherwise.
+
+### Toolchain
+
+- `ux check` — 34 errors across two layers. `src/check.js` asks whether a file
+  is well-formed; `src/linker.js` asks whether the names it references exist
+  anywhere in the project. Exits non-zero while errors remain.
+- `ux lint` — six warnings (`UX300`–`UX305`) for programs that are valid but
+  probably not what you meant. Never fails a build unless given `--strict`.
+- `ux map` — the navigation graph, written to `<dir>/.build/app.map`. Always
+  exits 0; a map of a broken project is exactly what you want when hunting a
+  dead end.
+- Unknown keywords suggest the word you meant (`did you mean \`tap\`?`).
+- Every diagnostic carries a `fix:` line naming the correction, so a model can
+  self-correct without a human refereeing.
+- Lexical errors sort ahead of everything else and print a banner, because
+  diagnostics derived from a broken line may be noise until it is fixed.
+
+### Tooling and docs
+
+- Claude Code plugin: a skill whose grammar section fits in 422 tokens, a full
+  grammar reference, a codegen guide, and an import guide for adopting an app
+  that already exists.
+- Three worked examples — `tasks`, `notes`, `shop` — kept clean by CI.
+- Adoption benchmark (`bench/`) measuring both parse rate and fidelity, plus
+  `bench/inspect.mjs` for reading what actually parsed.
+- Website with a playground that runs the real toolchain in the browser, built
+  from `src/` at build time rather than a copy.
+- CI on Node 20 and 22, which also fails the build if a dependency appears.
+
+### Known gaps
+
+Listed in full in the README. The largest: the Chrome indexer (live page →
+`.ux`) is specified and unbuilt, a list's `where` clause cannot reference
+user input so search is inexpressible, and the adoption benchmark has never
+been run.
+
+[Unreleased]: https://github.com/Arunachalamkalimuthu/ux-lang/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Arunachalamkalimuthu/ux-lang/releases/tag/v0.1.0

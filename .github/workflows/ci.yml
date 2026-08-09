@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the floor the project claims to support; 22 catches anything
+        # that only works on the version the author happens to run. A real
+        # plan bug was found this way once — `node --test test/` resolves the
+        # directory as a module path on newer Node and silently fails.
+        node: ['20', '22']
+    name: test (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No install step, deliberately. This project has zero dependencies and
+      # the README says so — if `npm ci` ever became necessary, that claim
+      # would be false and this job would be the first thing to notice.
+      - name: Assert there are no dependencies
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+            if (Object.keys(deps).length) {
+              console.error('Dependencies found:', Object.keys(deps).join(', '));
+              console.error('This project claims zero dependencies. Remove them or change the claim.');
+              process.exit(1);
+            }
+            console.log('zero dependencies, as advertised');
+          "
+
+      # Covers the parser, both checking layers, the linker, the CLI, the
+      # examples, the plugin's token budget, that every diagnostic code is
+      # documented, and that the committed site is current with src/.
+      - name: Run the test suite
+        run: npm test
+
+      # The suite proves the toolchain works on fixtures. This proves the
+      # thing a newcomer actually types works on a clean checkout.
+      - name: Check the shipped examples
+        run: |
+          for example in tasks shop notes; do
+            node bin/ux check "examples/$example/ux"
+            node bin/ux lint --strict "examples/$example/ux"
+          done
+
+      - name: Confirm the site build is reproducible
+        run: |
+          node site/build.mjs
+          if ! git diff --quiet; then
+            echo "The committed site differs from a fresh build."
+            echo "Run 'node site/build.mjs' and commit the result."
+            git diff --stat
+            exit 1
+          fi
