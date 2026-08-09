@@ -1,0 +1,7 @@
+# npm honours `files` in package.json for what to include; this excludes
+# generated output that lives inside those directories.
+#
+# `.build/` holds the app.map that `ux map` writes. It is regenerated on demand
+# and gitignored — shipping a stale copy inside the examples would be a small
+# lie in the one place people look to learn the language.
+**/.build/

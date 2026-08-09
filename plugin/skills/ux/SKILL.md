@@ -102,10 +102,10 @@ ux/
 ## Workflow
 
 1. Write or edit the `.ux` files.
-2. Validate: try `ux check ux/`. If the shell reports `command not found`,
-   the CLI hasn't been linked — fall back to `node <path-to-ux-lang-repo>/bin/ux
-   check ux/`, which needs no install (the repo this plugin ships from
-   already has `bin/ux`). Fix every diagnostic — each one names the fix.
+2. Validate: try `ux check ux/`. If the shell reports `command not found`, the
+   CLI isn't installed — use `npx uxlang check ux/`, or fall back to
+   `node <path-to-ux-lang-repo>/bin/ux check ux/` (the repo this plugin ships
+   from already has `bin/ux`). Fix every diagnostic — each one names the fix.
    Exit code is 0 only when there are no errors; this is the gate.
 3. Run `ux map ux/` (same fallback as step 2 if `ux` isn't linked) to see
    the whole navigation graph. It always exits 0, even on a broken project —

@@ -1,16 +1,49 @@
 {
-  "name": "ux-lang",
+  "name": "uxlang",
   "version": "0.1.0",
-  "description": "A small declarative language for describing what a user interface means",
+  "description": "A small declarative language for what a user interface means — catches the bugs a compiler can't, like a screen nobody can leave.",
+  "keywords": [
+    "ux",
+    "dsl",
+    "language",
+    "linter",
+    "static-analysis",
+    "developer-tools",
+    "ai",
+    "llm",
+    "codegen",
+    "navigation",
+    "zero-dependency"
+  ],
+  "homepage": "https://arunachalamkalimuthu.github.io/ux-lang/",
+  "bugs": {
+    "url": "https://github.com/Arunachalamkalimuthu/ux-lang/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arunachalamkalimuthu/ux-lang.git"
+  },
+  "author": "Arunachalam Kalimuthu",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "ux": "./bin/ux"
   },
-  "scripts": {
-    "test": "node --test test/*.test.js"
-  },
+  "files": [
+    "bin/",
+    "src/",
+    "plugin/",
+    "examples/",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md"
+  ],
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "prepublishOnly": "npm test"
   }
 }

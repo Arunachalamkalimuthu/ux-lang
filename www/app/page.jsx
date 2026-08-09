@@ -30,9 +30,8 @@ NewTask -> Inbox`;
 const DIAGNOSTIC = `inbox.ux:6  UX202  \`Detail\` has no way out — a user who lands here is stuck.
   fix:  add an action that leaves:  action "Back" -> Inbox`;
 
-const INSTALL = `git clone ${GITHUB}
-cd ux-lang && npm link
-ux check examples/tasks/ux
+const INSTALL = `npm install -g uxlang
+ux check ux/
 
 # in Claude Code:
 /plugin marketplace add /path/to/ux-lang

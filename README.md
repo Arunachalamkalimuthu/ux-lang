@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Arunachalamkalimuthu/ux-lang/actions/workflows/ci.yml/badge.svg)](https://github.com/Arunachalamkalimuthu/ux-lang/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-0B6E6B.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/uxlang?color=0B6E6B&label=npm)](https://www.npmjs.com/package/uxlang)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-0B6E6B.svg)](package.json)
 [![Toolchain dependencies](https://img.shields.io/badge/toolchain%20dependencies-none-0B6E6B.svg)](package.json)
 
@@ -73,20 +74,30 @@ None of those is a crash, none fails a normal test, and all of them ship.
 
 ## Quick start
 
-Requires **Node 20 or newer**. There are no dependencies to install.
+Requires **Node 20 or newer**. The package itself has no dependencies.
+
+```bash
+npm install -g uxlang
+
+ux check ux/    # validate a project
+ux lint  ux/    # warnings on valid-but-suspect code
+ux fmt   ux/    # canonical layout
+ux map   ux/    # the navigation graph
+```
+
+Or without installing: `npx uxlang check ux/`.
+
+> The package is **`uxlang`**; the project, repository and site are **ux-lang**.
+> The hyphenated name was already taken on npm.
+
+Working on the language itself instead:
 
 ```bash
 git clone https://github.com/Arunachalamkalimuthu/ux-lang
 cd ux-lang
-
-node bin/ux check examples/tasks/ux   # validate a project
-node bin/ux lint  examples/tasks/ux   # warnings on valid-but-suspect code
-node bin/ux fmt   examples/tasks/ux   # canonical layout
-node bin/ux map   examples/tasks/ux   # the navigation graph
-npm test                              # the full suite
+node bin/ux check examples/tasks/ux
+npm test
 ```
-
-To get a global `ux` command: `npm link` from the repo root, or `npx ux`.
 
 `examples/` has three worked projects of increasing size — `tasks`, `notes`,
 `shop`. All three check and lint clean, and CI keeps them that way.
@@ -148,8 +159,8 @@ every prompt.
 
 Then describe an app: Claude writes the `.ux`, runs `ux check`, fixes whatever
 it reports, and generates code from the result. The plugin drives the CLI from
-this repo, so either `npm link` it or let the skill fall back to
-`node <path-to-repo>/bin/ux`.
+this repo. Installing the package (`npm install -g uxlang`) puts `ux` on your
+path; otherwise the skill falls back to `node <path-to-repo>/bin/ux`.
 
 ## Adopting an existing app
 
