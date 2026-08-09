@@ -44,7 +44,7 @@ test('internal links resolve to files the build actually emits', async () => {
     const hrefs = [...html.matchAll(/href="([^"#][^"]*)"/g)].map(m => m[1]);
 
     for (const href of hrefs) {
-      if (/^(https?:|mailto:)/.test(href)) continue;
+      if (/^(https?:|mailto:|data:)/.test(href)) continue;
       const target = href.endsWith('/') ? `${href}index.html` : href;
       const resolved = new URL(target, `file:///${dir}/`).pathname.slice(1);
       assert.ok(emitted.has(resolved), `${path} links to ${href} -> ${resolved}, which is never emitted`);
@@ -77,7 +77,13 @@ test('no page makes an external request', async () => {
     assert.ok(!/<script[^>]+\bsrc=/i.test(html), `${path}: external <script src>`);
     assert.ok(!/<link[^>]+stylesheet/i.test(html), `${path}: external stylesheet`);
     assert.ok(!/@import\s+url\(/i.test(html), `${path}: CSS @import`);
-    assert.ok(!/https?:\/\/(?!github\.com|www\.apache\.org)/.test(html), `${path}: off-site URL`);
+    // w3.org appears only as the SVG XML namespace inside the data-URI
+    // favicon — a namespace identifier, never fetched.
+    const offSite = [...html.matchAll(/https?:\/\/[^\s"'<>)]+/g)]
+      .map(m => m[0])
+      .filter(u => !/^https:\/\/github\.com\//.test(u))
+      .filter(u => u !== 'http://www.w3.org/2000/svg');
+    assert.deepEqual(offSite, [], `${path}: off-site URL`);
   }
 });
 

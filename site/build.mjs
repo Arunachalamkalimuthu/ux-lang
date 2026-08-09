@@ -68,15 +68,44 @@ export const POSTS = [
   },
 ];
 
-// The mark: a screen with a way out. The square is a screen, the arrow is
-// navigation leaving it — and the whole point of the language is that a
-// square without one is a bug. Drawn in currentColor so it themes for free.
+// The mark is `app.map`: screen names of unequal length on the left, padded so
+// the arrows land in one aligned column on the right. That column is the
+// artifact this tool produces and is specific to it — unlike a rounded square
+// with an arrow leaving it, which is the standard sign-out icon.
+//
+// The names are held back to 55% so the arrows carry the mark: what the
+// language is actually about is where things lead.
+// The mark is a screen with a way out: a solid tile — the screen — with the
+// exit arrow punched clean through it.
+//
+// Two earlier attempts failed for reasons worth recording. An outlined square
+// with an arrow leaving it is the standard sign-out glyph, so it read as
+// "logout" rather than as this project. A two-row `app.map` motif carried the
+// right idea but collapsed to mush below about 24px. Solid shapes survive
+// small sizes; thin outlines with notches do not.
+//
+// One path, `evenodd`, so the arrow is a hole rather than a second colour —
+// the mark then works on any ground without knowing what is behind it.
+// Corners are kept tight so the tile reads as a screen rather than an app-store
+// icon, and the arrow sits off-centre toward the right wall — it is leaving,
+// not resting.
+const MARK_PATH = 'M5.5 2.5H18.5A3 3 0 0 1 21.5 5.5V18.5A3 3 0 0 1 18.5 21.5H5.5A3 3 0 0 1 2.5 18.5V5.5A3 3 0 0 1 5.5 2.5ZM5.9 10.6V13.4H13.4V16.8L19.6 12L13.4 7.2V10.6H5.9Z';
+
 export function logo(size = 22) {
-  return `<svg class="mark" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-  <rect x="2.5" y="4.5" width="12" height="15" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
-  <path d="M9.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-  <path d="M17 8.5 20.5 12 17 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  return `<svg class="mark" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
+  <path d="${MARK_PATH}" fill="currentColor" fill-rule="evenodd"/>
 </svg>`;
+}
+
+// Same mark, inlined as a data URI so the site has a real favicon without an
+// external request. Sized for a 16px tab: heavier stroke, no opacity split —
+// both would disappear at that scale.
+function favicon() {
+  // The xmlns below is an XML namespace identifier, not a fetch — a data-URI
+  // SVG will not render without it, and nothing is requested over the network.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
+    `<path d="${MARK_PATH}" fill="#0B6E6B" fill-rule="evenodd"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function nav(links, current) {
@@ -144,6 +173,7 @@ export function standalone(body, title, description) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
 <meta name="description" content="${description}">
+<link rel="icon" href="${favicon()}">
 </head>
 <body>
 ${body}
