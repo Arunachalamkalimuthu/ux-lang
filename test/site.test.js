@@ -25,6 +25,7 @@ test('the build emits every page the nav links to', async () => {
   const expected = [
     'docs/index.html',
     'docs/syntax.html',
+    'docs/roadmap.html',
     'docs/use-cases.html',
     'docs/terms.html',
     'docs/blog/index.html',
