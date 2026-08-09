@@ -75,25 +75,30 @@ export const POSTS = [
 //
 // The names are held back to 55% so the arrows carry the mark: what the
 // language is actually about is where things lead.
-// The mark is a screen with a way out: a solid tile — the screen — with the
-// exit arrow punched clean through it.
+// The mark is three lines of `.ux`: a declaration at the left margin, two
+// indented under it, and one of those running out as an arrow.
 //
-// Two earlier attempts failed for reasons worth recording. An outlined square
-// with an arrow leaving it is the standard sign-out glyph, so it read as
-// "logout" rather than as this project. A two-row `app.map` motif carried the
-// right idea but collapsed to mush below about 24px. Solid shapes survive
-// small sizes; thin outlines with notches do not.
+// Indentation is this language's only structure and the arrow is its only
+// operator, so together they are the shortest possible picture of a `.ux`
+// file — and nothing else in the icon vocabulary looks like it.
 //
-// One path, `evenodd`, so the arrow is a hole rather than a second colour —
-// the mark then works on any ground without knowing what is behind it.
-// Corners are kept tight so the tile reads as a screen rather than an app-store
-// icon, and the arrow sits off-centre toward the right wall — it is leaving,
-// not resting.
-const MARK_PATH = 'M5.5 2.5H18.5A3 3 0 0 1 21.5 5.5V18.5A3 3 0 0 1 18.5 21.5H5.5A3 3 0 0 1 2.5 18.5V5.5A3 3 0 0 1 5.5 2.5ZM5.9 10.6V13.4H13.4V16.8L19.6 12L13.4 7.2V10.6H5.9Z';
+// Three earlier attempts are worth recording as dead ends. An outlined square
+// with an arrow leaving it is the standard sign-out glyph and read as
+// "logout". A two-row `app.map` motif carried the right idea but collapsed
+// below ~24px. A solid tile with the arrow punched through was legible but
+// generic — a send button.
+//
+// Solid shapes, because thin outlines lose their detail at favicon size. The
+// bars are ragged on the right, as real lines of code are; the arrow is the
+// longest because it is the one that goes somewhere.
+const MARK_PARTS = (soften = 0.9) => `
+  <rect x="2.6" y="4.1" width="14.2" height="2.9" rx="1.45"/>
+  <path d="M7.4 10.55H14.4V8.5L20.7 12L14.4 15.5V13.45H7.4Z"
+        stroke="currentColor" stroke-width="${soften}" stroke-linejoin="round"/>
+  <rect x="7.4" y="17" width="8.4" height="2.9" rx="1.45"/>`;
 
 export function logo(size = 22) {
-  return `<svg class="mark" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
-  <path d="${MARK_PATH}" fill="currentColor" fill-rule="evenodd"/>
+  return `<svg class="mark" width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${MARK_PARTS()}
 </svg>`;
 }
 
@@ -103,8 +108,10 @@ export function logo(size = 22) {
 function favicon() {
   // The xmlns below is an XML namespace identifier, not a fetch — a data-URI
   // SVG will not render without it, and nothing is requested over the network.
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
-    `<path d="${MARK_PATH}" fill="#0B6E6B" fill-rule="evenodd"/></svg>`;
+  // Corners softened a touch harder here: at 16px the arrow's points read as
+  // noise otherwise.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0B6E6B" stroke="#0B6E6B">` +
+    MARK_PARTS(1.4).replace(/\n\s*/g, '') + `</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
