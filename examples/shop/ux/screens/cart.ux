@@ -1,0 +1,14 @@
+screen Cart
+  intent "Review the order before paying"
+
+  heading "Your cart"
+
+  list CartLine
+    row product, quantity
+    tap -> ProductDetail(product)
+    empty "Your cart is empty." action "Browse" -> Catalog
+    loading skeleton 3 rows
+    error "Could not load your cart." action retry
+
+  action "Checkout" -> Checkout
+  action "Keep shopping" -> Catalog

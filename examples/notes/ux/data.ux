@@ -1,0 +1,7 @@
+data Note
+  id       id
+  title    text  required
+  body     text
+  pinned   bool  = false
+  updated  datetime
+  tags     [text]

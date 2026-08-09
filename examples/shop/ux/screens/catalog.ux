@@ -1,0 +1,15 @@
+screen Catalog
+  at /
+  intent "Browse what's for sale"
+
+  heading "Shop"
+
+  list Product where stock > 0
+    sort by name
+    row name, price
+    tap -> ProductDetail(product)
+    empty "Nothing in stock right now." action "Refresh" -> Catalog
+    loading skeleton 6 rows
+    error "Could not load the catalog." action retry
+
+  action "Cart" -> Cart

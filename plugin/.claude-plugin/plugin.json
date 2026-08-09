@@ -1,0 +1,7 @@
+{
+  "name": "ux-lang",
+  "version": "0.1.0",
+  "description": "Describe app screens and flows in .ux, then generate the app from it",
+  "author": "ux-lang contributors",
+  "license": "Apache-2.0"
+}

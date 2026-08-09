@@ -1,0 +1,9 @@
+screen Detail(task)
+  intent "Read one task and finish or delete it"
+
+  heading "Task"
+  show task.title
+  show task.due
+
+  action "Done" -> complete(task)
+  action "Back" -> Inbox

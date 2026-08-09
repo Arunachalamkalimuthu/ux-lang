@@ -1,0 +1,16 @@
+data Product
+  id     id
+  name   text   required
+  price  money  required
+  image  image?
+  stock  int    = 0
+
+data CartLine
+  product   Product
+  quantity  int  = 1
+
+data Order
+  id      id
+  lines   [CartLine]
+  total   money
+  status  one of pending | paid | shipped = pending

@@ -1,0 +1,10 @@
+{
+  "name": "ux-lang",
+  "version": "0.1.0",
+  "description": "A small declarative language for describing what a user interface means",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "ux": "./bin/ux" },
+  "scripts": { "test": "node --test \"test/*.test.js\"" },
+  "engines": { "node": ">=20" }
+}

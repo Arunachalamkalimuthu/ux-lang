@@ -1,0 +1,12 @@
+flow complete(task)
+  set task.done = true
+  call api.updateTask(task)
+    ok -> toast "Done" undo 5s
+    fail -> error "Could not save that."
+  go Inbox
+
+flow create(task)
+  call api.createTask(task)
+    ok -> toast "Task added"
+    fail -> error "Could not create that task."
+  go Inbox

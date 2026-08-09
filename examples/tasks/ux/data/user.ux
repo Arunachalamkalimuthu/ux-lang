@@ -1,0 +1,4 @@
+data User
+  id     id
+  name   text   required
+  email  email  required

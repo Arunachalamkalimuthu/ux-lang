@@ -1,0 +1,12 @@
+screen ProductDetail(product)
+  intent "Decide whether to buy one thing"
+
+  show product.name
+  show product.price
+
+  if product.stock > 0
+    action "Add to cart" -> addToCart(product)
+  else
+    text "Out of stock."
+
+  action "Back" -> Catalog

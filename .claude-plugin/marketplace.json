@@ -1,0 +1,14 @@
+{
+  "name": "ux-lang",
+  "description": "Marketplace for the ux-lang plugin: write .ux, check it, generate code from it",
+  "owner": {
+    "name": "Arunachalam Kalimuthu"
+  },
+  "plugins": [
+    {
+      "name": "ux-lang",
+      "description": "Describe app screens and flows in .ux, then generate the app from it",
+      "source": "./plugin"
+    }
+  ]
+}

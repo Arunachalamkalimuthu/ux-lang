@@ -1,0 +1,12 @@
+flow togglePin(note)
+  set note.pinned = true
+  call api.saveNote(note)
+    ok -> toast "Pinned"
+    fail -> error "Could not pin that note."
+  go NoteDetail
+
+flow saveNote(note)
+  call api.saveNote(note)
+    ok -> toast "Saved"
+    fail -> error "Could not save that note."
+  go AllNotes

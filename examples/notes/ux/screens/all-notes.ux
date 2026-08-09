@@ -1,0 +1,17 @@
+screen AllNotes
+  at /
+  intent "Find a note fast"
+
+  tabs All | Pinned
+    -> Pinned
+
+  group "Recent"
+    list Note
+      sort by updated
+      row title, updated
+      tap -> NoteDetail(note)
+      empty "No notes yet." action "New note" -> NewNote
+      loading skeleton 5 rows
+      error "Could not load your notes." action retry
+
+  action "New note" -> NewNote

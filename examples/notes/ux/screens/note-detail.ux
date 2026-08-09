@@ -1,0 +1,8 @@
+screen NoteDetail(note)
+  intent "Read and edit one note"
+
+  use NoteRow(note)
+  show note.body
+
+  action togglePin(note)
+  action "Back" -> AllNotes

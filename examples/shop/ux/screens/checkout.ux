@@ -1,0 +1,9 @@
+screen Checkout
+  needs signed-in
+  intent "Take payment and confirm the order"
+
+  form Order
+    total
+    submit "Pay" -> pay(order)
+
+  action "Back to cart" -> Cart

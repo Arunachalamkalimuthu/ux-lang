@@ -1,0 +1,16 @@
+screen Inbox
+  at /
+  needs signed-in
+  intent "See what's due and clear it"
+
+  heading "Inbox"
+
+  list Task where owner is me and not done
+    sort by due
+    row title, due
+    tap -> Detail(task)
+    empty "All clear." action "New task" -> NewTask
+    loading skeleton 3 rows
+    error "Could not load your tasks." action retry
+
+  action "New task" -> NewTask
