@@ -10,6 +10,17 @@ changes. A rule is retired rather than repurposed.
 
 ## [Unreleased]
 
+### Added
+
+- Published to npm as **`uxlang`**, so installing is `npm install -g uxlang`
+  rather than a clone and a link. The hyphenated `ux-lang` was already taken by
+  an unrelated package, so the repository, the site and the package differ by
+  one character — noted in the README so nobody thinks they found a fork.
+  `files` is an allowlist: the tarball carries the CLI, the toolchain, the
+  plugin and the examples, and leaves out the website, the benchmark and the
+  tests. `prepublishOnly` runs the suite, because npm will not let you reuse a
+  version number and a broken publish cannot be taken back.
+
 ### Changed
 
 - The website is now a Next.js app under `www/`, deployed to GitHub Pages by
