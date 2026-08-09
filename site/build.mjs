@@ -128,7 +128,7 @@ function footer(base) {
     </div>
     <div>
       <p class="foot-head">Project</p>
-      <p><a href="${base}syntax.html">Syntax</a><br><a href="${base}use-cases.html">Use cases</a><br><a href="${base}blog/">Blog</a></p>
+      <p><a href="${base}syntax.html">Syntax</a><br><a href="${base}roadmap.html">Roadmap</a><br><a href="${base}use-cases.html">Use cases</a><br><a href="${base}blog/">Blog</a></p>
     </div>
     <div>
       <p class="foot-head">Legal</p>
@@ -142,6 +142,7 @@ function footer(base) {
 const PAGE_LINKS = base => [
   ['Overview', `${base}index.html`, 'index'],
   ['Syntax', `${base}syntax.html`, 'syntax'],
+  ['Roadmap', `${base}roadmap.html`, 'roadmap'],
   ['Use cases', `${base}use-cases.html`, 'use-cases'],
   ['Blog', `${base}blog/`, 'blog'],
   ['Terms', `${base}terms.html`, 'terms'],
@@ -150,6 +151,7 @@ const PAGE_LINKS = base => [
 const ANCHOR_LINKS = [
   ['Overview', '#top', 'index'],
   ['Syntax', '#syntax', 'syntax'],
+  ['Roadmap', '#roadmap', 'roadmap'],
   ['Use cases', '#use-cases', 'use-cases'],
   ['Blog', '#blog', 'blog'],
   ['Terms', '#terms', 'terms'],
@@ -180,11 +182,26 @@ const escapeHtml = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '
 
 // Escaping runs first, so `**` and backticks inside code samples can never be
 // mistaken for markup.
+const BLOB = `${GITHUB}/blob/master/`;
+
 const inline = s => escapeHtml(s)
   .replace(/`([^`]+)`/g, '<code>$1</code>')
-  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  // A relative target is a path in the repository, not a page on this site —
+  // docs/ is served from a subdirectory and these files live at the root — so
+  // send it to GitHub. Absolute URLs and anchors are left alone.
+  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, href) =>
+    `<a href="${/^(https?:|#|mailto:)/.test(href) ? href : BLOB + href}">${text}</a>`);
 
 const CELLS = row => row.split('|').slice(1, -1).map(c => c.trim());
+
+// Drops a markdown file's title and preamble, keeping everything from the
+// first `##` onward.
+function afterPreamble(md) {
+  const lines = md.split('\n');
+  const first = lines.findIndex(l => l.startsWith('## '));
+  return first === -1 ? md : lines.slice(first).join('\n');
+}
 
 export function markdownToHtml(md) {
   const lines = md.split('\n');
@@ -279,9 +296,16 @@ export async function buildSite() {
   }
 
   const grammar = await readFile(join(ROOT, 'plugin/skills/ux/reference/grammar.md'), 'utf8');
-  // Drop the file's own h1 and its plugin-facing preamble; the page supplies both.
-  const grammarBody = markdownToHtml(grammar.split('\n').slice(7).join('\n'));
+  // Everything before the first `##` is the file's own title and preamble; the
+  // page supplies its own. Slicing to the heading rather than a line count
+  // means the preamble can grow without leaving half a sentence behind.
+  const grammarBody = markdownToHtml(afterPreamble(grammar));
   const syntax = (await frag('pages/syntax.html')).replace('<!--__GRAMMAR__-->', grammarBody);
+
+  const roadmapSource = await readFile(join(ROOT, 'ROADMAP.md'), 'utf8');
+  // Drop the file's own h1 and standfirst; the page supplies both.
+  const roadmap = (await frag('pages/roadmap.html'))
+    .replace('<!--__ROADMAP__-->', markdownToHtml(afterPreamble(roadmapSource)));
 
   const useCases = await frag('pages/use-cases.html');
   const terms = await frag('pages/terms.html');
@@ -292,7 +316,7 @@ export async function buildSite() {
     posts[post.slug] = await frag(`posts/${post.slug}.html`);
   }
 
-  return { landing, syntax, useCases, terms, blogIndex, posts };
+  return { landing, syntax, roadmap, useCases, terms, blogIndex, posts };
 }
 
 function postList(base) {
@@ -306,13 +330,14 @@ function postList(base) {
 const DESC = {
   index: 'A small declarative language for what a user interface means. Catches the bugs a compiler cannot, like a screen nobody can leave.',
   syntax: 'The complete .ux grammar: declarations, screen elements, flows, the rules the checker enforces, and every diagnostic code.',
+  roadmap: 'What ships next and why, what is deliberately not planned, and what would change the plan.',
   'use-cases': 'Where a .ux file earns its keep: regenerating an app without losing a step, reviewing flows before code exists, and guarding navigation in CI.',
   blog: 'Writing about the problems .ux is meant to solve.',
   terms: 'Terms of use for the ux-lang website.',
 };
 
 export async function buildPages() {
-  const { landing, syntax, useCases, terms, blogIndex, posts } = await buildSite();
+  const { landing, syntax, roadmap, useCases, terms, blogIndex, posts } = await buildSite();
   const out = {};
 
   out['docs/index.html'] = standalone(
@@ -322,6 +347,10 @@ export async function buildPages() {
   out['docs/syntax.html'] = standalone(
     await shell({ content: syntax, base: '', current: 'syntax', links: PAGE_LINKS('') }),
     'Syntax — ux-lang', DESC.syntax);
+
+  out['docs/roadmap.html'] = standalone(
+    await shell({ content: roadmap, base: '', current: 'roadmap', links: PAGE_LINKS('') }),
+    'Roadmap — ux-lang', DESC.roadmap);
 
   out['docs/use-cases.html'] = standalone(
     await shell({ content: useCases, base: '', current: 'use-cases', links: PAGE_LINKS('') }),
@@ -354,6 +383,8 @@ export async function buildPages() {
     .replaceAll('href="use-cases.html"', 'href="#use-cases"')
     .replaceAll('href="../syntax.html"', 'href="#syntax"')
     .replaceAll('href="syntax.html"', 'href="#syntax"')
+    .replaceAll('href="../roadmap.html"', 'href="#roadmap"')
+    .replaceAll('href="roadmap.html"', 'href="#roadmap"')
     .replaceAll('href="../terms.html"', 'href="#terms"')
     .replaceAll('href="terms.html"', 'href="#terms"')
     .replaceAll('href="../blog/"', 'href="#blog"')
@@ -362,6 +393,7 @@ export async function buildPages() {
   const allInOne = toAnchor([
     landing,
     `<div id="syntax"></div>`, syntax,
+    `<div id="roadmap"></div>`, roadmap,
     `<div id="use-cases"></div>`, useCases,
     `<div id="blog"></div>`, blogIndex.replace('<!--__POSTLIST__-->', postList('')),
     ...POSTS.map(p => `<div id="${p.slug}"></div>\n${posts[p.slug]}`),

@@ -12,6 +12,14 @@ changes. A rule is retired rather than repurposed.
 
 ### Added
 
+- `ROADMAP.md`, rendered onto the site as a page from the same source. States
+  the ordering principle plainly: nothing should happen before the adoption
+  benchmark is actually run, because everything after it is a bet on an
+  unmeasured premise. Also says what is deliberately not planned, and what
+  would change the plan.
+- The site's markdown renderer now handles links. Relative targets resolve to
+  the repository on GitHub rather than to a page that does not exist — `docs/`
+  is served from a subdirectory and the files being linked live at the root.
 - `ux fmt` — canonical layout for `.ux` files, with `--check` for CI. It is
   deliberately layout-only: two-space indentation, tabs converted, trailing
   whitespace stripped, blank runs collapsed, one blank line between
@@ -24,6 +32,9 @@ changes. A rule is retired rather than repurposed.
 
 ### Fixed
 
+- Markdown pages are sliced to their first `##` heading instead of a hardcoded
+  line count, which had left half a sentence of the preamble on the page when
+  that preamble grew.
 - `UX002`'s suggested fix no longer changes how a file parses. It rounded the
   indent up while the lexer floors it, so at three spaces the line was already
   nested one level and following the advice to use four silently nested it two.

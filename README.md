@@ -52,6 +52,7 @@ the rest of the codebase.
 - [Documentation](#documentation)
 - [Project layout](#project-layout)
 - [Status and limitations](#status-and-limitations)
+- [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -177,6 +178,7 @@ Full guide: [`plugin/skills/ux/reference/import.md`](plugin/skills/ux/reference/
 | [Generating code](plugin/skills/ux/reference/codegen.md) | turning `.ux` into React and other targets |
 | [Importing an app](plugin/skills/ux/reference/import.md) | the reverse direction |
 | [Adoption benchmark](bench/README.md) | how the language measures whether it is learnable |
+| [Roadmap](ROADMAP.md) | what ships next, what will not, and what would change the plan |
 | [Website](https://arunachalamkalimuthu.github.io/ux-lang/) | the same reference, plus a live playground |
 
 ## Project layout
@@ -218,6 +220,17 @@ Known gaps, stated plainly because discovering them later is worse:
   meant, but a near-miss is still an error rather than a warning that
   normalises. `ux fmt` now exists, which removes the blocker; accepting `onTap`
   as `tap` remains a language change that needs benchmark evidence first.
+
+## Roadmap
+
+[ROADMAP.md](ROADMAP.md) covers what ships next and why, what is deliberately
+not planned, and what would change the plan.
+
+The short version: **nothing else should happen before the adoption benchmark is
+actually run.** The whole project rests on the claim that a model given only
+`SKILL.md` writes valid `.ux` on its first try at least 90% of the time. The
+harness exists; results do not. Everything after that is a bet on an unmeasured
+premise.
 
 ## Contributing
 
