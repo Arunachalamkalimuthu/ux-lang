@@ -80,6 +80,7 @@ cd ux-lang
 
 node bin/ux check examples/tasks/ux   # validate a project
 node bin/ux lint  examples/tasks/ux   # warnings on valid-but-suspect code
+node bin/ux fmt   examples/tasks/ux   # canonical layout
 node bin/ux map   examples/tasks/ux   # the navigation graph
 npm test                              # the full suite
 ```
@@ -114,6 +115,12 @@ Warnings never fail a build unless you ask for it:
 ```bash
 node bin/ux lint --strict ux/   # for CI: warnings exit 1
 ```
+
+`ux fmt` rewrites files in canonical layout — two-space indentation, no tabs,
+no trailing whitespace, one blank line between declarations. It is deliberately
+layout-only and provably meaning-preserving: the test suite asserts the parse
+tree is identical before and after, for every example in the repo. `--check`
+reports what would change and writes nothing, for CI.
 
 `ux map` prints the navigation graph and writes it to `<dir>/.build/app.map`:
 
@@ -208,8 +215,9 @@ Known gaps, stated plainly because discovering them later is worse:
 - **The adoption benchmark has never been run.** Twenty prompts and a ≥90%
   target exist in `bench/`; no results do.
 - **Design rule R4 is half implemented.** Unknown keywords suggest the word you
-  meant, but near-misses are still errors rather than warnings that normalise —
-  that half is blocked on a formatter that does not exist yet.
+  meant, but a near-miss is still an error rather than a warning that
+  normalises. `ux fmt` now exists, which removes the blocker; accepting `onTap`
+  as `tap` remains a language change that needs benchmark evidence first.
 
 ## Contributing
 

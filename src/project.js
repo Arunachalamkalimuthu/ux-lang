@@ -3,7 +3,9 @@ import { join, extname } from 'node:path';
 import { parse } from './parser.js';
 import { check } from './check.js';
 
-async function findUxFiles(dir) {
+// Exported so `ux fmt` walks exactly the same set of files as `ux check`.
+// Two walkers would eventually disagree about what a project contains.
+export async function findUxFiles(dir) {
   const found = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.')) continue;

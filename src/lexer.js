@@ -50,7 +50,13 @@ export function lex(source, file) {
 
     const indent = stripped.length - stripped.trimStart().length;
     if (indent % 2 !== 0) {
-      const suggestion = Math.round(indent / 2) * 2;
+      // Floor, matching the depth the lexer actually assigns below. Rounding
+      // reads as friendlier — 3 spaces "looks like" it wanted 4 — but it made
+      // the fix line change the parse: at 3 spaces the line is already nested
+      // one level, and following the advice to use 4 silently nested it two.
+      // A `fix:` that alters meaning is worse than no fix, because the whole
+      // contract is that you can apply it without thinking.
+      const suggestion = Math.floor(indent / 2) * 2;
       diags.push(diag('UX002', file, line,
         `Indent of ${indent} spaces is not a multiple of 2.`,
         `use ${suggestion} spaces`));

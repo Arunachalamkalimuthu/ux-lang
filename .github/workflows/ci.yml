@@ -56,6 +56,7 @@ jobs:
           for example in tasks shop notes; do
             node bin/ux check "examples/$example/ux"
             node bin/ux lint --strict "examples/$example/ux"
+            node bin/ux fmt --check "examples/$example/ux"
           done
 
       - name: Confirm the site build is reproducible
