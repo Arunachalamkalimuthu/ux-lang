@@ -145,3 +145,12 @@ test('a file that formatSource produced is already formatted', () => {
     assert.ok(isFormatted(formatSource(source)), `not stable for: ${JSON.stringify(source)}`);
   }
 });
+
+test('formatting does not rewrite a tab inside a string', () => {
+  const source = 'screen Home\n  text "a\tb"\n';
+  assert.match(formatSource(source), /"a\tb"/);
+});
+
+test('formatting still expands a tab used for indentation', () => {
+  assert.match(formatSource('screen Home\n\ttext "x"\n'), /\n  text "x"/);
+});

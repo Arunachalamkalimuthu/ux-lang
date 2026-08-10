@@ -120,3 +120,10 @@ test('a well-formed project produces no warnings', () => {
     'flow newTask(task)\n  go Inbox\n';
   assert.deepEqual(run(clean), []);
 });
+
+test('UX305 does not repeat the `add:` prefix the renderer supplies', () => {
+  const source = 'screen Home\n  intent "Land"\n  list Task\n    row title\n';
+  const warnings = lint([parse(source, 'a.ux').ast]);
+  const inert = warnings.find(d => d.code === 'UX305');
+  assert.doesNotMatch(inert.fix, /^add:/);
+});

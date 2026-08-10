@@ -124,3 +124,27 @@ test('lex allows dedenting by more than one level', () => {
   const { diags } = lex('screen A\n  list B\n    item C\naction D\n', 'a.ux');
   assert.equal(diags.length, 0);
 });
+
+// ---- audit regressions -----------------------------------------------------
+
+test('a UTF-8 BOM does not make the first line fail UX002', () => {
+  const { diags, lines } = lex('﻿app Demo\nscreen Home\n', 'a.ux');
+  assert.deepEqual(diags, []);
+  assert.equal(lines[0].text, 'app Demo');
+  assert.equal(lines[0].depth, 0);
+});
+
+test('a tab inside a string is not reported as indentation', () => {
+  const { diags } = lex('  text "a\tb"\n', 'a.ux');
+  assert.deepEqual(diags.filter(d => d.code === 'UX001'), []);
+});
+
+test('a tab used for indentation is still UX001', () => {
+  const { diags } = lex('\ttext "a"\n', 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX001').length, 1);
+});
+
+test('a tab between a keyword and its argument is still UX001', () => {
+  const { diags } = lex('  text\t"a"\n', 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX001').length, 1);
+});

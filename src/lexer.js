@@ -13,6 +13,25 @@ import { diag } from './diagnostics.js';
 // just a character inside the string), so `text "Nothing overdue # ok`
 // (no closing quote) is still correctly flagged: the walk never reaches a
 // point where it's "not in a string" before running off the end of the line.
+// Tabs become two spaces so the depth the parser computes matches the depth a
+// reader sees — but only outside a string. A tab *inside* a string literal is
+// a character the author wrote: replacing it silently changed the value, and
+// UX001 told them their indentation was wrong when nothing about their
+// indentation was. Exported so `format.js` normalises tabs by this exact rule
+// and not a second copy of it; the formatter's whole contract is that it
+// cannot change the parse, which two implementations of this would eventually
+// break.
+export function expandTabs(text) {
+  let out = '';
+  let inString = false;
+  for (const ch of text) {
+    if (ch === '"') inString = !inString;
+    if (ch === '\t' && !inString) { out += '  '; continue; }
+    out += ch;
+  }
+  return out;
+}
+
 function scanLine(text) {
   let stripped = '';
   let inString = false;
@@ -29,16 +48,21 @@ export function lex(source, file) {
   const lines = [];
   let previousDepth = -1;
 
-  source.split('\n').forEach((raw, index) => {
+  // A byte-order mark is an encoding marker, not content. Left in place it
+  // became a one-character indent on line 1 — UX002, "Indent of 1 spaces is
+  // not a multiple of 2", with a fix ("use 0 spaces") the file already
+  // satisfied, on a file that looks correct in every editor.
+  source.replace(/^﻿/, '').split('\n').forEach((raw, index) => {
     const line = index + 1;
 
-    if (raw.includes('\t')) {
+    const expanded = expandTabs(raw);
+    if (expanded !== raw) {
       diags.push(diag('UX001', file, line,
         'Tabs cannot be used for indentation.',
         'replace each tab with two spaces'));
     }
 
-    const { stripped, unterminated } = scanLine(raw.replace(/\t/g, '  '));
+    const { stripped, unterminated } = scanLine(expanded);
     if (unterminated) {
       diags.push(diag('UX004', file, line,
         `Line ${line} has an unterminated string (a \`"\` is opened but never closed outside any \`#\` comment).`,

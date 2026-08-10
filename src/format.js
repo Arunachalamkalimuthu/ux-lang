@@ -17,6 +17,8 @@
 // the diagnostics are identical before and after formatting, for every example
 // in the repo.
 
+import { expandTabs } from './lexer.js';
+
 // Depth is floored, exactly as `lexer.js` computes it. Anything else would
 // re-nest a line that the parser had already placed.
 const depthOf = indent => Math.floor(indent / 2);
@@ -28,9 +30,10 @@ export function formatSource(source) {
   let blankRun = 0;
 
   for (const raw of source.split('\n')) {
-    // Tabs become two spaces before anything else, matching the lexer, so a
-    // tab-indented file formats to the structure the parser already saw.
-    const line = raw.replace(/\t/g, '  ').replace(/\s+$/, '');
+    // Tabs become two spaces before anything else, through the lexer's own
+    // rule, so a tab-indented file formats to the structure the parser already
+    // saw — and a tab inside a string stays the character the author wrote.
+    const line = expandTabs(raw).replace(/\s+$/, '');
 
     if (line === '') { blankRun++; continue; }
 
