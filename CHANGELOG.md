@@ -39,6 +39,22 @@ changes. A rule is retired rather than repurposed.
 
 ### Changed
 
+- **Exit code 2 now means the invocation or the setup is wrong**, not the
+  project: an unknown flag, a directory that isn't there, a `.ux` file that
+  cannot be read, a `.build` that cannot be written. Exit 1 keeps its meaning —
+  the project has errors, or a warning under `--strict`, or `fmt --check` found
+  a file it would rewrite. Everything used to be 1, so a script could not tell
+  a missing directory from a dead-end screen. **This changes the exit code** of
+  every setup failure, which for CI is the point: 1 means fix the app, 2 means
+  fix the setup.
+- **`--format json` on `check`, `lint` and `map`.** The stated audience is
+  models and CI and both were scraping a format built for a person; the
+  diagnostics already carried everything the report needs. `map --format json`
+  returns `entry`, `screens` and `edges`. `.build/app.map` stays the text
+  rendering whatever `--format` says — it is a record a generator and a human
+  both read, and a file whose contents depend on a flag from one run is not one
+  you can rely on. `--format=json` is accepted as well as `--format json`.
+
 - **Strings understand `\"` and `\\`.** A `.ux` string could not contain a quote
   at all: `intent "He said \"go\" once"` parsed to `He said \` — truncated at
   the escape, with no diagnostic. Those two escapes are now the entire

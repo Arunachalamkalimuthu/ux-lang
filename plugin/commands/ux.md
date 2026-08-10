@@ -11,8 +11,10 @@ Work with the `.ux` files in this project.
    with no network, `node "${CLAUDE_PLUGIN_ROOT}/../bin/ux" check ux/` (this
    plugin ships from that repo, one level above the plugin root). Report every
    diagnostic with its fix (the line labeled `fix:`). If any error remains,
-   fix the `.ux` and check again before continuing — `ux check` exits
-   non-zero while errors remain; that exit code is the gate.
+   fix the `.ux` and check again before continuing — `ux check` exits 1 while
+   errors remain, and that exit code is the gate. Exit 2 is not a verdict on
+   the project: it means the invocation or the setup is wrong (a bad flag, a
+   missing directory, an unreadable file), so fix that and re-run.
 3. Run `ux map ux/` (same fallback as step 2) and show the user the
    navigation graph. Note that `ux map` always exits 0, even on a broken
    project (it prints an error count instead of failing), so do not treat a

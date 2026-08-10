@@ -123,7 +123,11 @@ ux/
    `node "${CLAUDE_PLUGIN_ROOT}/../bin/ux" check ux/` (this plugin ships from
    that repo, one level above the plugin root). Fix every diagnostic — each one
    names the fix.
-   Exit code is 0 only when there are no errors; this is the gate.
+   Exit 0 means clean and exit 1 means the project has errors — that is the
+   gate. Exit 2 is a different failure: a bad flag, a missing directory, an
+   unreadable file. Fix the invocation, don't treat it as a verdict on the
+   `.ux`. Add `--format json` when a script rather than a person reads the
+   output.
 3. Run `ux map ux/` (same fallback as step 2 if `ux` isn't linked) to see
    the whole navigation graph. It always exits 0, even on a broken project —
    it prints an error count instead of hiding them, but it is not the gate.

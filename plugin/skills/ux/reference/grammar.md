@@ -285,6 +285,29 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX207 | a screen has links out, but none of them can reach the entry screen — a group of screens the user cannot leave |
 | UX206 | a `form` field, or a `list`'s `row`/`sort by` entry, names a field its resolved `data` type does not declare (linker, project-wide) |
 
+## Exit codes and machine-readable output
+
+`ux check` and `ux lint` exit **0** when the project is clean and **1** when it
+is not — errors, or any warning under `--strict`. `ux fmt --check` exits 1 when
+a file would be rewritten. **2** is a different failure entirely: the
+invocation or the setup is wrong (an unknown flag, a directory that isn't
+there, a file that cannot be read, a `.build` that cannot be written). CI
+should treat 1 as "fix the app" and 2 as "fix the setup"; a script that lumps
+them together reports a missing directory as a broken project.
+
+`--format json` makes `check`, `lint` and `map` emit a report instead of prose:
+
+```json
+{ "ok": false, "command": "check", "dir": "ux", "errors": 2, "warnings": 0,
+  "diagnostics": [ { "code": "UX207", "severity": "error", "file": "ux/app.ux",
+                     "line": 9, "message": "…", "fix": "…" } ] }
+```
+
+`ux map --format json` returns `entry`, `screens` and `edges` instead of
+`diagnostics`. The `.build/app.map` file is always the text rendering, whatever
+`--format` says: it is a record both a generator and a human read, and a file
+whose contents depend on a flag from one run is not one you can rely on.
+
 ## Warnings (`ux lint`)
 
 Everything above is an error: the program is wrong and the build fails. The

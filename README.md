@@ -126,6 +126,7 @@ Warnings never fail a build unless you ask for it:
 
 ```bash
 node bin/ux lint --strict ux/   # for CI: warnings exit 1
+node bin/ux check --format json ux/   # a report for a script rather than a person
 ```
 
 `ux fmt` rewrites files in canonical layout — two-space indentation, no tabs,

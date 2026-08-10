@@ -49,7 +49,7 @@ test('map prints the flow graph', async () => {
   assert.match(stdout, /Home\s+-> About/);
 });
 
-test('no arguments prints usage and exits 0; unknown command exits 1 naming a valid command', async () => {
+test('no arguments prints usage and exits 0; unknown command exits 2 naming a valid command', async () => {
   const { stdout, code } = await run('node', [CLI]);
   assert.match(stdout, /ux check/);
   assert.match(stdout, /ux map/);
@@ -59,7 +59,7 @@ test('no arguments prints usage and exits 0; unknown command exits 1 naming a va
   await assert.rejects(
     run('node', [CLI, 'bogus', join(dir, 'ux')]),
     err => {
-      assert.equal(err.code, 1);
+      assert.equal(err.code, 2);
       assert.match(err.stdout, /Unknown command/);
       assert.match(err.stdout, /ux check/);
       return true;
@@ -74,13 +74,13 @@ test('map writes <dir>/.build/app.map to disk matching stdout', async () => {
   assert.equal(written, stdout);
 });
 
-test('check on a missing directory exits 1 and names it, without a raw stack trace', async () => {
+test('check on a missing directory exits 2 and names it, without a raw stack trace', async () => {
   const dir = await mktempDir();
   const missing = join(dir, 'nope');
   await assert.rejects(
     run('node', [CLI, 'check', missing]),
     err => {
-      assert.equal(err.code, 1);
+      assert.equal(err.code, 2);
       assert.match(err.stdout, /nope/);
       assert.doesNotMatch(err.stdout, /at file:|at Object\.|node:internal/);
       // Finding 6: bin/ux's own hint lines must use the same `fix:` label
@@ -106,7 +106,7 @@ test('unknown command against a directory with no ux/ folder names the command, 
   await assert.rejects(
     run('node', [CLI, 'bogus', join(dir, 'ux')]),
     err => {
-      assert.equal(err.code, 1);
+      assert.equal(err.code, 2);
       assert.match(err.stdout, /Unknown command `bogus`/);
       assert.doesNotMatch(err.stdout, /Could not read/);
       return true;
@@ -123,7 +123,7 @@ test('unknown command message uses the `fix:` label with the renderer\'s exact s
   await assert.rejects(
     run('node', [CLI, 'bogus']),
     err => {
-      assert.equal(err.code, 1);
+      assert.equal(err.code, 2);
       assert.match(err.stdout, /\n {2}fix: {2}ux check\n/);
       assert.doesNotMatch(err.stdout, /add:/);
       return true;
@@ -176,13 +176,13 @@ test('map on a clean project prints only the map, with no error-count line', asy
 
 // --- MEDIUM 7: an empty project directory is an error, not a silent pass ---
 
-test('check on a `ux/` directory with zero .ux files exits 1, not "No problems found"', async () => {
+test('check on a `ux/` directory with zero .ux files exits 2, not "No problems found"', async () => {
   const dir = await mktempDir();
   await mkdir(join(dir, 'ux'), { recursive: true });
   await assert.rejects(
     run('node', [CLI, 'check', join(dir, 'ux')]),
     err => {
-      assert.equal(err.code, 1);
+      assert.equal(err.code, 2);
       assert.doesNotMatch(err.stdout, /No problems found/);
       assert.match(err.stdout, /no \.ux files/);
       // The directory demonstrably exists (this test just created it), so
@@ -325,21 +325,21 @@ async function fails(args, cwd) {
 test('an unknown flag is rejected rather than silently ignored', async () => {
   const dir = await project(GOOD);
   const { code, stdout } = await fails(['check', '--list-different', join(dir, 'ux')]);
-  assert.equal(code, 1);
+  assert.equal(code, 2);
   assert.match(stdout, /--list-different/);
 });
 
 test('--strict=true is rejected rather than silently disabling the gate', async () => {
   const dir = await project(GOOD);
   const { code, stdout } = await fails(['check', '--strict=true', join(dir, 'ux')]);
-  assert.equal(code, 1);
+  assert.equal(code, 2);
   assert.match(stdout, /--strict=true/);
 });
 
 test('a second directory argument is rejected rather than silently ignored', async () => {
   const dir = await project(GOOD);
   const { code, stdout } = await fails(['check', join(dir, 'ux'), 'somewhere-else']);
-  assert.equal(code, 1);
+  assert.equal(code, 2);
   assert.match(stdout, /somewhere-else/);
 });
 
@@ -355,7 +355,7 @@ test('map reports a diagnostic instead of a stack trace when .build cannot be cr
   const dir = await project(GOOD);
   await writeFile(join(dir, 'ux', '.build'), 'not a directory');
   const { code, stdout } = await fails(['map', join(dir, 'ux')]);
-  assert.equal(code, 1);
+  assert.equal(code, 2);
   assert.doesNotMatch(stdout, /at .*node:internal/, 'a raw Node stack trace reached the user');
   assert.match(stdout, /\.build/);
 });
@@ -364,7 +364,7 @@ test('fmt reports an unreadable file instead of dying part-way through the pass'
   const dir = await project(GOOD);
   await symlink(join(dir, 'ux', 'nowhere.ux'), join(dir, 'ux', 'dangling.ux'));
   const { code, stdout } = await fails(['fmt', join(dir, 'ux')]);
-  assert.equal(code, 1);
+  assert.equal(code, 2);
   assert.doesNotMatch(stdout, /at .*node:internal/, 'a raw Node stack trace reached the user');
   assert.match(stdout, /dangling\.ux/);
 });
@@ -373,7 +373,7 @@ test('fmt refuses a file that is not valid UTF-8 rather than rewriting it lossil
   const dir = await project({ 'app.ux': 'app Demo\n' });
   await writeFile(join(dir, 'ux', 'bad.ux'), Buffer.from([0x61, 0x70, 0x70, 0x20, 0xff, 0x0a]));
   const { code, stdout } = await fails(['fmt', join(dir, 'ux')]);
-  assert.equal(code, 1);
+  assert.equal(code, 2);
   assert.match(stdout, /bad\.ux/);
   const after = await readFile(join(dir, 'ux', 'bad.ux'));
   assert.ok(after.includes(0xff), 'the invalid byte was rewritten away');
@@ -393,4 +393,83 @@ test('a symlinked directory of .ux files is walked', async () => {
   await symlink(shared, join(dir, 'ux', 'shared'));
   const { code, stdout } = await fails(['check', join(dir, 'ux')]);
   assert.equal(code, 0, `expected the symlinked directory to be walked, got: ${stdout}`);
+});
+
+// ---- machine-readable output and exit codes --------------------------------
+
+test('check --format json emits a parseable report', async () => {
+  const dir = await project({
+    'app.ux': 'app Demo\n',
+    'home.ux': 'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Nowhere\n',
+  });
+  const { code, stdout } = await fails(['check', '--format', 'json', join(dir, 'ux')]);
+  assert.equal(code, 1);
+  const report = JSON.parse(stdout);
+  assert.equal(report.ok, false);
+  assert.equal(report.errors, report.diagnostics.filter(d => d.severity === 'error').length);
+  const dangling = report.diagnostics.find(d => d.code === 'UX200');
+  assert.ok(dangling, 'UX200 missing from the JSON report');
+  for (const key of ['code', 'severity', 'file', 'line', 'message', 'fix']) {
+    assert.ok(key in dangling, `diagnostic is missing \`${key}\``);
+  }
+});
+
+test('check --format json on a clean project reports ok and exits 0', async () => {
+  const dir = await project(GOOD);
+  const { code, stdout } = await fails(['check', '--format', 'json', join(dir, 'ux')]);
+  assert.equal(code, 0);
+  const report = JSON.parse(stdout);
+  assert.equal(report.ok, true);
+  assert.deepEqual(report.diagnostics, []);
+});
+
+test('map --format json emits the graph rather than ASCII', async () => {
+  const dir = await project(GOOD);
+  const { code, stdout } = await fails(['map', '--format', 'json', join(dir, 'ux')]);
+  assert.equal(code, 0);
+  const report = JSON.parse(stdout);
+  assert.equal(report.entry, 'Home');
+  assert.ok(report.screens.includes('About'));
+  assert.ok(report.edges.some(e => e.from === 'Home' && e.to === 'About'));
+});
+
+test('lint --format json emits warnings', async () => {
+  const dir = await project({
+    'app.ux': 'app Demo\n',
+    'home.ux': 'screen Home\n  at /\n  intent "Home"\n  action "Go" -> About\n',
+    'about.ux': 'screen About\n  intent "Explain the thing"\n  action "Back" -> Home\n',
+  });
+  const { stdout } = await fails(['lint', '--format', 'json', join(dir, 'ux')]);
+  const report = JSON.parse(stdout);
+  assert.ok(report.diagnostics.some(d => d.code === 'UX303'));
+});
+
+// A broken project and a broken invocation are different failures, and CI
+// wants to tell them apart: one means fix your app, the other means fix your
+// setup. Everything used to be exit 1.
+test('a usage error exits 2, not 1', async () => {
+  const dir = await project(GOOD);
+  for (const args of [
+    ['check', '--nope', join(dir, 'ux')],
+    ['check', join(dir, 'ux'), 'extra-arg'],
+    ['wat', join(dir, 'ux')],
+    ['check', '--format', 'yaml', join(dir, 'ux')],
+  ]) {
+    const { code } = await fails(args);
+    assert.equal(code, 2, `${args.join(' ')} should exit 2`);
+  }
+});
+
+test('a missing or empty project directory exits 2', async () => {
+  const empty = await project({});
+  assert.equal((await fails(['check', join(empty, 'ux')])).code, 2);
+  assert.equal((await fails(['check', join(empty, 'does-not-exist')])).code, 2);
+});
+
+test('a project with real errors still exits 1', async () => {
+  const dir = await project({
+    'app.ux': 'app Demo\n',
+    'home.ux': 'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Nowhere\n',
+  });
+  assert.equal((await fails(['check', join(dir, 'ux')])).code, 1);
 });
