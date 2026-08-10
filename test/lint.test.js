@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parse } from '../src/parser.js';
 import { lint } from '../src/lint.js';
+import { applyIgnores } from '../src/ignore.js';
+import { check } from '../src/check.js';
 import { WARNING } from '../src/diagnostics.js';
 
 const run = (...sources) => lint(sources.map((s, i) => parse(s, `f${i}.ux`).ast));
@@ -126,4 +128,49 @@ test('UX305 does not repeat the `add:` prefix the renderer supplies', () => {
   const warnings = lint([parse(source, 'a.ux').ast]);
   const inert = warnings.find(d => d.code === 'UX305');
   assert.doesNotMatch(inert.fix, /^add:/);
+});
+
+// ---- inline suppression ----------------------------------------------------
+
+test('a trailing ux:ignore suppresses that warning on that line', () => {
+  const source = 'screen Home\n  intent "Land"\n  list Task   # ux:ignore UX305\n    row title\n';
+  const { ast } = parse(source, 'a.ux');
+  const kept = applyIgnores(lint([ast]), [ast]);
+  assert.deepEqual(kept.filter(d => d.code === 'UX305'), []);
+});
+
+test('ux:ignore only suppresses the codes it names', () => {
+  const source = 'screen Home\n  intent "Land"\n  list Task   # ux:ignore UX300\n    row title\n';
+  const { ast } = parse(source, 'a.ux');
+  const kept = applyIgnores(lint([ast]), [ast]);
+  assert.equal(kept.filter(d => d.code === 'UX305').length, 1);
+});
+
+test('ux:ignore accepts several codes', () => {
+  const source = 'data Task\n  title text\n\nscreen Home\n  intent "Land"\n  list Task   # ux:ignore UX300, UX305\n    row title\n';
+  const { ast } = parse(source, 'a.ux');
+  const kept = applyIgnores(lint([ast]), [ast]);
+  assert.deepEqual(kept.filter(d => d.code === 'UX305'), []);
+});
+
+test('ux:ignore refuses to suppress an error and says so', () => {
+  const source = 'screen Home\n  intent "Land"\n  form   # ux:ignore UX110\n    title\n';
+  const { ast } = parse(source, 'a.ux');
+  const kept = applyIgnores(check(ast), [ast]);
+  assert.equal(kept.filter(d => d.code === 'UX110').length, 1, 'the error is still reported');
+  assert.equal(kept.filter(d => d.code === 'UX026').length, 1, 'and the attempt is named');
+});
+
+test('an ignore that suppresses nothing is reported so it cannot rot', () => {
+  const source = 'data Task\n  title text\n\nscreen Home\n  intent "Land"\n  list Task   # ux:ignore UX303\n    row title\n';
+  const { ast } = parse(source, 'a.ux');
+  const kept = applyIgnores(lint([ast]), [ast]);
+  assert.equal(kept.filter(d => d.code === 'UX027').length, 1);
+});
+
+test('a comment that is not an ignore directive is left alone', () => {
+  const source = 'screen Home\n  intent "Land"\n  list Task   # just a note about UX305\n    row title\n';
+  const { ast } = parse(source, 'a.ux');
+  const kept = applyIgnores(lint([ast]), [ast]);
+  assert.equal(kept.filter(d => d.code === 'UX305').length, 1);
 });

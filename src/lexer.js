@@ -36,6 +36,7 @@ function scanLine(text) {
   const { escaped, commentAt, unterminated } = stringMask(text);
   const end = commentAt === -1 ? text.length : commentAt;
   const badEscapes = [];
+  const comment = commentAt === -1 ? '' : text.slice(commentAt + 1);
 
   for (let i = 0; i < end; i++) {
     // `\"` and `\\` are the whole vocabulary. Anything else would quietly lose
@@ -44,12 +45,26 @@ function scanLine(text) {
     if (escaped[i] && text[i] !== '"' && text[i] !== '\\') badEscapes.push(text[i]);
   }
 
-  return { stripped: text.slice(0, end), unterminated, badEscapes };
+  return { stripped: text.slice(0, end), unterminated, badEscapes, comment };
+}
+
+// `# ux:ignore UX305` — the only directive, and it has to come out of the
+// comment before the comment is thrown away. Codes are separated by commas or
+// spaces; anything that is not this exact shape stays an ordinary comment, so
+// a note that merely mentions a code suppresses nothing.
+const IGNORE = /^\s*ux:ignore\s+(.+?)\s*$/;
+
+function ignoreDirective(comment) {
+  const match = IGNORE.exec(comment);
+  if (!match) return null;
+  const codes = match[1].split(/[,\s]+/).filter(Boolean);
+  return codes.length ? codes : null;
 }
 
 export function lex(source, file) {
   const diags = [];
   const lines = [];
+  const ignores = [];
   let previousDepth = -1;
 
   // A byte-order mark is an encoding marker, not content. Left in place it
@@ -66,7 +81,9 @@ export function lex(source, file) {
         'replace each tab with two spaces'));
     }
 
-    const { stripped, unterminated, badEscapes } = scanLine(expanded);
+    const { stripped, unterminated, badEscapes, comment } = scanLine(expanded);
+    const codes = ignoreDirective(comment);
+    if (codes) ignores.push({ line, codes });
     for (const ch of badEscapes) {
       diags.push(diag('UX025', file, line,
         `\`\\${ch}\` is not an escape this language knows.`,
@@ -106,7 +123,7 @@ export function lex(source, file) {
     previousDepth = depth;
   });
 
-  return { lines, diags };
+  return { lines, diags, ignores };
 }
 
 export function treeify(lines) {

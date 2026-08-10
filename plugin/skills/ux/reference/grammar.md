@@ -285,6 +285,23 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX207 | a screen has links out, but none of them can reach the entry screen — a group of screens the user cannot leave |
 | UX206 | a `form` field, or a `list`'s `row`/`sort by` entry, names a field its resolved `data` type does not declare (linker, project-wide) |
 
+## Suppressing a warning
+
+A trailing `# ux:ignore UX305` suppresses that code on that line; several codes
+may be listed, separated by commas or spaces.
+
+```
+list Task   # ux:ignore UX305
+  row title
+```
+
+Two limits, both deliberate. **Errors cannot be ignored** — a dead end or a
+broken link is what this tool exists to stop, and a checker whose findings can
+be silenced one comment at a time is not making that promise. Trying reports
+`UX026` and the error still stands. And an ignore that **suppresses nothing**
+reports `UX027`, because a suppression that outlives the problem it was for is
+how the next reader learns to distrust every comment in the file.
+
 ## Exit codes and machine-readable output
 
 `ux check` and `ux lint` exit **0** when the project is clean and **1** when it
@@ -325,4 +342,6 @@ you don't have to remember a second command.
 | UX302 | a `component` in its own file that only one screen uses |
 | UX303 | an `intent` that restates the screen's name, is a placeholder, or duplicates another screen's |
 | UX304 | a name that breaks the casing convention — `PascalCase` declarations, `camelCase` fields and flows |
+| UX026 | `ux:ignore` named an error code, which cannot be suppressed (warning) |
+| UX027 | a `ux:ignore` that suppressed nothing on its line (warning) |
 | UX305 | a `list` with no `tap` and no action in any of its states, so nothing in it can be acted on |

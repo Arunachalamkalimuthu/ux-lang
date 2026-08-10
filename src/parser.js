@@ -43,9 +43,9 @@ function noBody(node, keyword, file, diags, code, fix) {
 }
 
 export function parse(source, file) {
-  const { lines, diags } = lex(source, file);
+  const { lines, diags, ignores } = lex(source, file);
   const root = treeify(lines);
-  const ast = { kind: 'Program', file, root: null, decls: [] };
+  const ast = { kind: 'Program', file, root: null, decls: [], ignores };
 
   for (const node of root.children) {
     const [keyword, ...rest] = words(node.text);

@@ -39,6 +39,18 @@ changes. A rule is retired rather than repurposed.
 
 ### Changed
 
+- **`# ux:ignore UX305` suppresses a warning on that line.** `lint.js` has
+  argued since it was written that "a lint rule that cannot be ignored is an
+  error wearing the wrong label", and that every rule there has a legitimate
+  exception — while offering no way to take one, so a single justified
+  exception was a reason to stop running lint at all. Two limits keep the
+  escape hatch from becoming a hole: **errors cannot be ignored** (`UX026`
+  names the attempt and the error still stands — a checker whose findings can
+  be silenced one comment at a time is not promising that a dead end will not
+  ship), and an ignore that **suppresses nothing** reports `UX027`, because a
+  suppression outliving its problem is how the next reader learns to distrust
+  every comment in the file.
+
 - **Exit code 2 now means the invocation or the setup is wrong**, not the
   project: an unknown flag, a directory that isn't there, a `.ux` file that
   cannot be read, a `.build` that cannot be written. Exit 1 keeps its meaning —

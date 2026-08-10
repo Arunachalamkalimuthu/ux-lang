@@ -7,6 +7,7 @@ import { link } from '../src/linker.js';
 import { renderMap } from '../src/map.js';
 import { renderDiagnostics } from '../src/report.js';
 import { lint } from '../src/lint.js';
+import { applyIgnores } from '../src/ignore.js';
 import { hasErrors, ERROR } from '../src/diagnostics.js';
 
 // Ordering is a CLI presentation concern, not part of what a diagnostic
@@ -225,8 +226,13 @@ if ((command === 'check' || command === 'lint') && programs.length === 0) {
 }
 
 const linked = link(programs);
-const errors = sortDiagnostics([...diags, ...linked.diags]);
-const warnings = sortDiagnostics(lint(programs));
+
+// One pass over everything, so a `# ux:ignore` that suppresses nothing is
+// reported once rather than once per severity — and so the unused-ignore check
+// can see a warning suppressed on the same line as an error it cannot touch.
+const reported = applyIgnores([...diags, ...linked.diags, ...lint(programs)], programs);
+const errors = sortDiagnostics(reported.filter(d => d.severity === ERROR));
+const warnings = sortDiagnostics(reported.filter(d => d.severity !== ERROR));
 
 // Warnings fail the build only when asked. A lint rule that cannot be ignored
 // is an error wearing the wrong label, and every rule here has a legitimate
