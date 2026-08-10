@@ -269,10 +269,12 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX110 | a `form` has no data name |
 | UX111 | the project declares no `app`/`site` root, or more than one, project-wide (linker) |
 | UX112 | a `list` has no data name |
+| UX113 | two screens declare the same route (linker, project-wide) |
+| UX114 | a `form`'s `submit` has no target — it renders but does nothing |
 | UX200 | a navigation target (`-> Name`, from a screen or from a flow's `go`) does not exist |
 | UX201 | a screen is unreachable — nothing links to it |
 | UX202 | a screen has no way out (a self-loop or `action retry` alone does not count) |
-| UX203 | a navigation target expects a different number of arguments than were passed |
+| UX203 | a navigation target, a flow's `go`, or a `use` passes a different number of arguments than the declaration takes |
 | UX204 | `use` names a component that was never declared |
 | UX205 | the same `screen`, `flow`, `component` or `data` name is declared in two different files |
 | UX206 | a `form` field, or a `list`'s `row`/`sort by` entry, names a field its resolved `data` type does not declare (linker, project-wide) |

@@ -21,12 +21,22 @@ export function link(programs) {
   // collision visible (UX205) and resolution first-wins like everything else.
   const dataDecls = new Map();
 
+  // Two lists, deliberately. The maps hold the declaration each *name*
+  // resolves to — first wins — and drive the graph. These hold every
+  // declaration as written, and drive the per-declaration checks, because a
+  // duplicate name used to hide the loser's own errors behind the UX205: its
+  // dangling links and undeclared types were never looked at, even though it
+  // is a real block of text in a real file that someone has to fix.
+  const allScreens = [];
+  const allComponents = [];
+  const allData = [];
+
   for (const program of programs) {
     for (const decl of program.decls) {
-      if (decl.kind === 'Screen') registerDecl(screens, decl, diags);
+      if (decl.kind === 'Screen') { allScreens.push(decl); registerDecl(screens, decl, diags); }
       if (decl.kind === 'Flow') registerDecl(flows, decl, diags);
-      if (decl.kind === 'Component') registerDecl(components, decl, diags);
-      if (decl.kind === 'Data') registerDecl(dataDecls, decl, diags);
+      if (decl.kind === 'Component') { allComponents.push(decl); registerDecl(components, decl, diags); }
+      if (decl.kind === 'Data') { allData.push(decl); registerDecl(dataDecls, decl, diags); }
     }
   }
 
@@ -58,7 +68,7 @@ export function link(programs) {
   // per spec §7's own `data/user.ux` + `data/task.ux` layout), so this
   // requires the complete `dataTypes` table above and cannot run until every
   // program has been scanned.
-  for (const decl of dataDecls.values()) {
+  for (const decl of allData) {
     checkFieldTypes(decl, dataTypes, diags);
   }
 
@@ -100,19 +110,52 @@ export function link(programs) {
       `add \`screen ${target.name}\` or \`flow ${target.name}\`, or fix the spelling`));
   }
 
+  // `use Card(a, b)` against `component Card(x)` is the same mistake UX203
+  // reports for a navigation target, and it went unchecked — UX204 asked only
+  // whether the component existed.
+  function checkUses(owner, diags) {
+    for (const use of componentUses(owner)) {
+      const component = components.get(use.component);
+      if (!component) {
+        diags.push(diag('UX204', owner.file, use.line,
+          `\`${use.component}\` is not a declared component.`,
+          `component ${use.component}(…)`));
+        continue;
+      }
+      checkArity(owner, { name: use.component, args: use.args }, component.params ?? [], diags, use.line);
+    }
+  }
+
+  // Two screens claiming one route is the ambiguity UX111 reports for the
+  // project root, one level down: `pickEntry` silently takes the first, and
+  // the other becomes a screen the router can never send anyone to.
+  const byRoute = new Map();
   for (const screen of screens.values()) {
+    const route = screen.at?.trim();
+    if (!route) continue;
+    const first = byRoute.get(route);
+    if (first) {
+      diags.push(diag('UX113', screen.file, screen.line,
+        `\`${screen.name}\` and \`${first.name}\` both declare the route \`${route}\`.`,
+        'give one of them a different route — a route names exactly one screen'));
+      continue;
+    }
+    byRoute.set(route, screen);
+  }
+
+  for (const screen of allScreens) {
+    // A shadowed duplicate still gets every check that is about the text in
+    // front of you; what it does not get is edges, because the name resolves
+    // to the declaration that claimed it first.
+    const from = screens.get(screen.name) === screen ? screen.name : null;
+
     checkListDataTypes(screen.body, dataTypes, dataByName, screen.file, diags);
     checkFormDataTypes(screen.body, dataTypes, dataByName, screen.file, diags);
 
-    for (const nav of navigationTargets(screen)) resolveTarget(screen, screen.name, nav, true);
-    for (const nav of inheritedTargets(screen, components)) resolveTarget(screen, screen.name, nav, false);
+    for (const nav of navigationTargets(screen)) resolveTarget(screen, from, nav, true);
+    for (const nav of inheritedTargets(screen, components)) resolveTarget(screen, from, nav, false);
 
-    for (const use of componentUses(screen)) {
-      if (components.has(use.component)) continue;
-      diags.push(diag('UX204', screen.file, use.line,
-        `\`${use.component}\` is not a declared component.`,
-        `component ${use.component}(…)`));
-    }
+    checkUses(screen, diags);
   }
 
   // A flow's own `go` targets are navigation targets too — check them even
@@ -121,7 +164,10 @@ export function link(programs) {
     for (const step of flowGoSteps(flow)) {
       const target = step.target;
       if (!target) continue;
-      if (screens.has(target.name)) continue;
+      if (screens.has(target.name)) {
+        checkArity(flow, target, screens.get(target.name).params ?? [], diags, step.line);
+        continue;
+      }
       diags.push(diag('UX200', flow.file, step.line,
         `\`${flow.name}\` links to \`${target.name}\`, which does not exist.`,
         `add \`screen ${target.name}\`, or fix the spelling`));
@@ -129,7 +175,7 @@ export function link(programs) {
   }
 
   // Components can `use` other components too, and can hold lists and forms of their own.
-  for (const component of components.values()) {
+  for (const component of allComponents) {
     checkListDataTypes(component.body, dataTypes, dataByName, component.file, diags);
     checkFormDataTypes(component.body, dataTypes, dataByName, component.file, diags);
 
@@ -139,12 +185,7 @@ export function link(programs) {
     // uses it, above.
     for (const nav of navigationTargets(component)) resolveTarget(component, null, nav, true);
 
-    for (const use of componentUses(component)) {
-      if (components.has(use.component)) continue;
-      diags.push(diag('UX204', component.file, use.line,
-        `\`${use.component}\` is not a declared component.`,
-        `component ${use.component}(…)`));
-    }
+    checkUses(component, diags);
   }
 
   const entry = pickEntry(screens, edges);

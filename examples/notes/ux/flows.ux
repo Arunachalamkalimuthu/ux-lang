@@ -3,7 +3,7 @@ flow togglePin(note)
   call api.saveNote(note)
     ok -> toast "Pinned"
     fail -> error "Could not pin that note."
-  go NoteDetail
+  go NoteDetail(note)
 
 flow saveNote(note)
   call api.saveNote(note)

@@ -566,3 +566,79 @@ test('a data name declared in two files is reported as a cross-file duplicate', 
   ];
   assert.equal(diagsOf(files).filter(d => d.code === 'UX205').length, 1);
 });
+
+test('two screens claiming the same route are reported', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  at /\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX113');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /\//);
+});
+
+test('screens with distinct routes, or none, are not reported', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  at /other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX113'), []);
+});
+
+test('a `use` that passes the wrong number of arguments is reported', () => {
+  const files = [
+    APP + 'component Card(x)\n  text "card"\n',
+    'screen Home\n  at /\n  intent "Land here"\n  use Card(a, b, c)\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX203');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /expects 1 argument/);
+});
+
+test('a `use` with matching arity is not reported', () => {
+  const files = [
+    APP + 'component Card(x)\n  text "card"\n',
+    'screen Home\n  at /\n  intent "Land here"\n  use Card(task)\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX203'), []);
+});
+
+test("a flow's `go` is arity-checked against the screen it lands on", () => {
+  const files = [
+    APP + 'flow open\n  go Detail(a, b, c)\n',
+    'screen Home\n  at /\n  intent "Land here"\n  action "Open" -> open\n',
+    'screen Detail(task)\n  intent "Read one thing"\n  action "Back" -> Home\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX203');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /expects 1 argument/);
+});
+
+test("a shadowed duplicate declaration's own link errors are still reported", () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+    'screen Home\n  intent "A second Home"\n  action "Broken" -> NoSuchScreen\n  list Undeclared\n    row x\n    empty "e"\n    loading skeleton 1 rows\n    error "x"\n',
+  ];
+  const diags = diagsOf(files);
+  assert.equal(diags.filter(d => d.code === 'UX205').length, 1, 'the duplicate itself is still reported');
+  assert.equal(diags.filter(d => d.code === 'UX200').length, 1, 'the shadowed copy\'s dangling link is reported');
+  assert.equal(diags.filter(d => d.code === 'UX106').length, 1, 'the shadowed copy\'s undeclared data type is reported');
+});
+
+test("a shadowed duplicate data declaration's own field errors are still reported", () => {
+  const files = [
+    APP + 'data Task\n  title text required\n',
+    'data Task\n  title NotAType required\n',
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  const diags = diagsOf(files);
+  assert.equal(diags.filter(d => d.code === 'UX205').length, 1);
+  assert.equal(diags.filter(d => d.code === 'UX105').length, 1, "the shadowed copy's unknown field type is reported");
+});
