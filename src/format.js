@@ -36,7 +36,12 @@ export function formatSource(source) {
 
     const indent = line.length - line.trimStart().length;
     const text = line.trimStart();
-    const isTopLevel = indent === 0 && TOP_LEVEL.test(text);
+    // Test the depth this line is *emitted* at, not the indent it arrived
+    // with. A declaration indented one space is emitted at column 0, so with
+    // `indent === 0` here the first pass did not treat it as top-level and the
+    // second pass did — it gained a blank line above it on the second run, and
+    // `ux fmt && ux fmt --check` failed on a file `ux fmt` had just written.
+    const isTopLevel = depthOf(indent) === 0 && TOP_LEVEL.test(text);
 
     if (out.length > 0) {
       // One blank line between top-level declarations; at most one anywhere

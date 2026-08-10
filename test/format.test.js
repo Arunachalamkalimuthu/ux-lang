@@ -127,3 +127,21 @@ test('isFormatted agrees with formatSource', () => {
   assert.ok(isFormatted(canonical));
   assert.ok(!isFormatted('app A\nscreen B\n  intent "x"\n'));
 });
+
+// ---- audit regressions -----------------------------------------------------
+
+test('formatting is idempotent when a top-level declaration is indented one space', () => {
+  const source = 'app Demo\n screen Home\n  at /\n  intent "Land"\n  text "hi"\n';
+  const once = formatSource(source);
+  assert.equal(formatSource(once), once, 'a second pass changed the file again');
+});
+
+test('a file that formatSource produced is already formatted', () => {
+  for (const source of [
+    'app Demo\n screen Home\n  intent "x"\n',
+    ' app Demo\nscreen Home\n  intent "x"\n',
+    'app Demo\n\n  screen Home\n   intent "x"\n',
+  ]) {
+    assert.ok(isFormatted(formatSource(source)), `not stable for: ${JSON.stringify(source)}`);
+  }
+});

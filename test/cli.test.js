@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -309,4 +309,88 @@ test('fmt on an already-clean project exits 0 and says so', async () => {
   const dir = await project(GOOD);
   const { stdout } = await run('node', [CLI, 'fmt', '--check', join(dir, 'ux')]);
   assert.match(stdout, /already formatted/);
+});
+
+// ---- audit regressions -----------------------------------------------------
+
+async function fails(args, cwd) {
+  try {
+    const { stdout } = await run('node', [CLI, ...args], cwd ? { cwd } : undefined);
+    return { code: 0, stdout };
+  } catch (error) {
+    return { code: error.code, stdout: error.stdout };
+  }
+}
+
+test('an unknown flag is rejected rather than silently ignored', async () => {
+  const dir = await project(GOOD);
+  const { code, stdout } = await fails(['check', '--list-different', join(dir, 'ux')]);
+  assert.equal(code, 1);
+  assert.match(stdout, /--list-different/);
+});
+
+test('--strict=true is rejected rather than silently disabling the gate', async () => {
+  const dir = await project(GOOD);
+  const { code, stdout } = await fails(['check', '--strict=true', join(dir, 'ux')]);
+  assert.equal(code, 1);
+  assert.match(stdout, /--strict=true/);
+});
+
+test('a second directory argument is rejected rather than silently ignored', async () => {
+  const dir = await project(GOOD);
+  const { code, stdout } = await fails(['check', join(dir, 'ux'), 'somewhere-else']);
+  assert.equal(code, 1);
+  assert.match(stdout, /somewhere-else/);
+});
+
+test('--strict and --check are still accepted anywhere in the line', async () => {
+  const dir = await project(GOOD);
+  const { code } = await fails(['check', '--strict', join(dir, 'ux')]);
+  assert.equal(code, 0);
+  const flipped = await fails(['check', join(dir, 'ux'), '--strict']);
+  assert.equal(flipped.code, 0);
+});
+
+test('map reports a diagnostic instead of a stack trace when .build cannot be created', async () => {
+  const dir = await project(GOOD);
+  await writeFile(join(dir, 'ux', '.build'), 'not a directory');
+  const { code, stdout } = await fails(['map', join(dir, 'ux')]);
+  assert.equal(code, 1);
+  assert.doesNotMatch(stdout, /at .*node:internal/, 'a raw Node stack trace reached the user');
+  assert.match(stdout, /\.build/);
+});
+
+test('fmt reports an unreadable file instead of dying part-way through the pass', async () => {
+  const dir = await project(GOOD);
+  await symlink(join(dir, 'ux', 'nowhere.ux'), join(dir, 'ux', 'dangling.ux'));
+  const { code, stdout } = await fails(['fmt', join(dir, 'ux')]);
+  assert.equal(code, 1);
+  assert.doesNotMatch(stdout, /at .*node:internal/, 'a raw Node stack trace reached the user');
+  assert.match(stdout, /dangling\.ux/);
+});
+
+test('fmt refuses a file that is not valid UTF-8 rather than rewriting it lossily', async () => {
+  const dir = await project({ 'app.ux': 'app Demo\n' });
+  await writeFile(join(dir, 'ux', 'bad.ux'), Buffer.from([0x61, 0x70, 0x70, 0x20, 0xff, 0x0a]));
+  const { code, stdout } = await fails(['fmt', join(dir, 'ux')]);
+  assert.equal(code, 1);
+  assert.match(stdout, /bad\.ux/);
+  const after = await readFile(join(dir, 'ux', 'bad.ux'));
+  assert.ok(after.includes(0xff), 'the invalid byte was rewritten away');
+});
+
+test('a symlinked directory of .ux files is walked', async () => {
+  // Home links to Extra, and Extra lives only behind the symlink. If the walk
+  // skips it the project is rejected with UX200 for a screen that does exist —
+  // so a clean run is the only outcome that proves the directory was read.
+  const dir = await project({
+    'app.ux': 'app Demo\n',
+    'home.ux': 'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Extra\n',
+  });
+  const shared = await mkdtemp(join(tmpdir(), 'ux-shared-'));
+  await writeFile(join(shared, 'extra.ux'),
+    'screen Extra\n  intent "Somewhere extra"\n  action "Back" -> Home\n');
+  await symlink(shared, join(dir, 'ux', 'shared'));
+  const { code, stdout } = await fails(['check', join(dir, 'ux')]);
+  assert.equal(code, 0, `expected the symlinked directory to be walked, got: ${stdout}`);
 });

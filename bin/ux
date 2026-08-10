@@ -53,13 +53,29 @@ const USAGE = `ux — check, lint, format and map .ux projects
 // Flags are pulled out first so they can appear anywhere — `ux check --strict
 // ux/` and `ux check ux/ --strict` are the same command, and a flag can never
 // be mistaken for the directory.
+//
+// Both halves are then checked rather than trimmed to the two the parse
+// happens to want. Dropping the rest is the wrong way for a CLI to fail:
+// `ux fmt --list-different` — Prettier's spelling of `--check` — rewrote every
+// file in place and exited 0, `ux check --strict=true` turned the CI gate off
+// without saying so, and `ux check a b` checked `a` and never mentioned `b`.
+const KNOWN_FLAGS = new Set(['--strict', '--check', '--help']);
 const argv = process.argv.slice(2);
-const strict = argv.includes('--strict');
-const checkOnly = argv.includes('--check');
-const [command, dirArg] = argv.filter(a => !a.startsWith('--') || a === '--help');
+const flags = argv.filter(a => a.startsWith('-'));
+const positional = argv.filter(a => !a.startsWith('-'));
+
+const unknownFlag = flags.find(flag => !KNOWN_FLAGS.has(flag));
+if (unknownFlag) {
+  process.stdout.write(`Unknown flag \`${unknownFlag}\`.\n  fix:  the only flags are --strict and --check\n`);
+  process.exit(1);
+}
+
+const strict = flags.includes('--strict');
+const checkOnly = flags.includes('--check');
+const [command, dirArg, ...extra] = positional;
 const dir = dirArg ?? 'ux';
 
-if (!command || command === 'help' || command === '--help') {
+if (!command || command === 'help' || flags.includes('--help')) {
   process.stdout.write(USAGE);
   process.exit(0);
 }
@@ -70,6 +86,11 @@ if (!command || command === 'help' || command === '--help') {
 // error instead of naming the actual mistake.
 if (!['check', 'lint', 'fmt', 'map'].includes(command)) {
   process.stdout.write(`Unknown command \`${command}\`.\n  fix:  ux check\n`);
+  process.exit(1);
+}
+
+if (extra.length > 0) {
+  process.stdout.write(`Unexpected argument \`${extra[0]}\` — \`ux ${command}\` takes one directory.\n  fix:  ux ${command} ${dir}\n`);
   process.exit(1);
 }
 
@@ -90,24 +111,50 @@ if (command === 'fmt') {
     process.exit(1);
   }
 
+  // A file this pass cannot handle is reported and skipped, not thrown. An
+  // uncaught read error used to abort the loop part-way: files earlier in the
+  // sorted walk had already been rewritten, files after it had not, and the
+  // run said nothing about either.
   const changed = [];
+  const skipped = [];
   for (const path of files) {
-    const source = await readFile(path, 'utf8');
+    let bytes;
+    try {
+      bytes = await readFile(path);
+    } catch (error) {
+      skipped.push({ path, reason: error.message });
+      continue;
+    }
+
+    // `readFile(…, 'utf8')` turns every byte it cannot decode into U+FFFD, so
+    // writing the decoded text back would make a lossy read permanent. A
+    // formatter may not destroy what it could not read in the first place.
+    const source = bytes.toString('utf8');
+    if (!Buffer.from(source, 'utf8').equals(bytes)) {
+      skipped.push({ path, reason: 'not valid UTF-8 — formatting it would replace the bytes that could not be decoded' });
+      continue;
+    }
+
     const formatted = formatSource(source);
     if (formatted === source) continue;
     changed.push(path);
     if (!checkOnly) await writeFile(path, formatted);
   }
 
+  if (skipped.length > 0) {
+    const lines = skipped.map(s => `  ${s.path}: ${s.reason}`).join('\n');
+    process.stdout.write(`Could not format ${skipped.length} file(s):\n${lines}\n  fix:  make each one readable and valid UTF-8, then re-run\n\n`);
+  }
+
   if (changed.length === 0) {
-    process.stdout.write(`${files.length} file(s) already formatted.\n`);
-    process.exit(0);
+    process.stdout.write(`${files.length - skipped.length} file(s) already formatted.\n`);
+    process.exit(skipped.length > 0 ? 1 : 0);
   }
 
   const verb = checkOnly ? 'would be reformatted' : 'reformatted';
   process.stdout.write(`${changed.map(p => `  ${p}`).join('\n')}\n\n${changed.length} file(s) ${verb}.\n`);
   // --check is for CI: report and fail, write nothing.
-  process.exit(checkOnly ? 1 : 0);
+  process.exit(checkOnly || skipped.length > 0 ? 1 : 0);
 }
 
 let programs, diags;
@@ -168,6 +215,16 @@ const output = errorCount > 0
   ? `${map}\n${errorCount} error(s) — run \`ux check\` for details\n`
   : `${map}\n`;
 process.stdout.write(output);
-await mkdir(join(dir, '.build'), { recursive: true });
-await writeFile(join(dir, '.build', 'app.map'), output);
+
+// The map is already on stdout, so a failure to save it costs the reader
+// nothing they were looking at — but it is still a failure, and every other
+// I/O path here reports one rather than letting a Node stack trace out.
+try {
+  await mkdir(join(dir, '.build'), { recursive: true });
+  await writeFile(join(dir, '.build', 'app.map'), output);
+} catch (error) {
+  process.stdout.write(`Could not write \`${join(dir, '.build', 'app.map')}\`: ${error.message}\n  fix:  make ${join(dir, '.build')} a writable directory, or remove what is in its place\n`);
+  process.exit(1);
+}
+
 process.exit(0);
