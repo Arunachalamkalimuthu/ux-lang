@@ -143,3 +143,33 @@ test('regression: a call with no branches at all yields empty ok/fail with no di
   assert.deepEqual(call.ok, []);
   assert.deepEqual(call.fail, []);
 });
+
+// ---- audit regressions -----------------------------------------------------
+
+test('a misspelled call branch reports UX024 instead of being dropped', () => {
+  const source = 'flow saveThing\n  call api.save\n    ok -> go Other\n    faild -> go Nowhere\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX024').length, 1);
+  assert.match(diags.find(d => d.code === 'UX024').message, /faild/);
+});
+
+test('UX024 suggests the branch keyword the author meant', () => {
+  const { diags } = parse('flow f\n  call api.save\n    fial -> go Home\n', 'a.ux');
+  assert.match(diags.find(d => d.code === 'UX024').fix, /fail/);
+});
+
+test('well-formed ok and fail branches stay silent', () => {
+  const source = 'flow saveThing\n  call api.save\n    ok -> go Other\n    fail -> toast "No"\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.deepEqual(diags.filter(d => d.code === 'UX024'), []);
+});
+
+test('a `go` target that cannot be parsed reports UX023', () => {
+  const { diags } = parse('flow f\n  go some-screen\n', 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX023').length, 1);
+});
+
+test('a well-formed `go` stays silent', () => {
+  const { diags } = parse('flow f\n  go Home\n', 'a.ux');
+  assert.deepEqual(diags.filter(d => d.code === 'UX023'), []);
+});

@@ -253,6 +253,10 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX018 | a step inside a `call`'s `ok`/`fail` branch has its own nested branches |
 | UX019 | an `ok`/`fail` branch is missing `->` and a step |
 | UX020 | a `tabs` block has more than one `->` child — only one destination is supported |
+| UX021 | an element that takes no indented body was given one (`heading`, `text`, `show`, `action`, `use`, or a non-`->` child of `tabs`) |
+| UX022 | `app`/`site` was given an indented body — it names the project, it does not contain it |
+| UX023 | a `->` destination that is not a usable name, on a `tap`, `tabs`, `submit` or `go` |
+| UX024 | an unknown branch inside a `call` (must be `ok` or `fail`) |
 | UX100 | a screen has no `intent` |
 | UX101 | a screen has no body content |
 | UX102 | a `list` has no `empty` case |
