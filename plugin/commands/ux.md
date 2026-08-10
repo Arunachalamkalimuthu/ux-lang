@@ -7,9 +7,9 @@ Work with the `.ux` files in this project.
 1. If no `ux/` directory exists, create one and write `app.ux` plus a first
    screen based on what the user described.
 2. Try `ux check ux/`. If the shell reports `command not found`, the CLI
-   hasn't been linked in this environment — fall back to
-   `node <path-to-ux-lang-repo>/bin/ux check ux/`, which needs no install
-   (the repo the `ux` plugin ships from already has `bin/ux`). Report every
+   hasn't been linked in this environment — use `npx uxlang check ux/`, or,
+   with no network, `node "${CLAUDE_PLUGIN_ROOT}/../bin/ux" check ux/` (this
+   plugin ships from that repo, one level above the plugin root). Report every
    diagnostic with its fix (the line labeled `fix:`). If any error remains,
    fix the `.ux` and check again before continuing — `ux check` exits
    non-zero while errors remain; that exit code is the gate.

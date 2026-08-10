@@ -86,7 +86,7 @@ is well-formed.
 Verify what actually parsed:
 
 ```
-node <path-to-ux-lang-repo>/bench/inspect.mjs ux/
+node "${CLAUDE_PLUGIN_ROOT}/../bench/inspect.mjs" ux/
 ```
 
 It prints every screen with where it leads, every form with its **actual parsed

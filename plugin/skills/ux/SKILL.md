@@ -1,6 +1,6 @@
 ---
 name: ux
-description: Use when building or changing app screens, flows, or navigation - describes the UI in .ux first, then generates code from it, so the whole app's shape stays in one readable file
+description: Use when building, changing, reviewing or auditing a UI - screens, pages, routes, navigation, user flows, wireframes - or when working with .ux files. Describes the interface in .ux first and generates code from it, so the whole app's shape stays in one readable file and a checker can catch dead ends, broken links and missing empty/loading/error states before any code exists.
 ---
 
 # Writing .ux
@@ -73,6 +73,22 @@ flow name(arg)
 Types: `text number int bool date time datetime money email url phone image
 file id secret`
 
+### The four ways this is usually got wrong
+
+Each of these used to produce a file that meant something other than it looked
+like. They are all errors now, but they are cheaper to avoid than to fix.
+
+- **`app` takes no indented body.** Every declaration sits at column 0 —
+  `app`, `data`, `screen`, `component`, `flow` alike. Indenting them under
+  `app Name` is the YAML habit and it empties the whole file.
+- **Only `group`, `if`, `form`, `list` and `tabs` take an indented body.**
+  Nothing nests under `heading`, `text`, `show`, `action` or `use`. A `list`
+  indented one level too far belongs to no screen.
+- **Targets are PascalCase declaration names, not routes.** `-> TaskDetail`,
+  never `-> task-detail`, `-> /tasks/:id` or `-> screens.TaskDetail`.
+- **Inside a string, `\"` is a quote and `\\` is a backslash.** Those two are
+  the whole escape vocabulary; anything else after a `\` is an error.
+
 ## Rules that are enforced
 
 - Every screen needs an `intent`. One line, plain language.
@@ -103,9 +119,10 @@ ux/
 
 1. Write or edit the `.ux` files.
 2. Validate: try `ux check ux/`. If the shell reports `command not found`, the
-   CLI isn't installed — use `npx uxlang check ux/`, or fall back to
-   `node <path-to-ux-lang-repo>/bin/ux check ux/` (the repo this plugin ships
-   from already has `bin/ux`). Fix every diagnostic — each one names the fix.
+   CLI isn't installed — use `npx uxlang check ux/`, or, with no network,
+   `node "${CLAUDE_PLUGIN_ROOT}/../bin/ux" check ux/` (this plugin ships from
+   that repo, one level above the plugin root). Fix every diagnostic — each one
+   names the fix.
    Exit code is 0 only when there are no errors; this is the gate.
 3. Run `ux map ux/` (same fallback as step 2 if `ux` isn't linked) to see
    the whole navigation graph. It always exits 0, even on a broken project —

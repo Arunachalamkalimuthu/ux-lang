@@ -56,6 +56,32 @@ changes. A rule is retired rather than repurposed.
 
 ### Fixed
 
+- **The Claude Code plugin manifest was invalid and would not load.**
+  `plugin/.claude-plugin/plugin.json` carried `"author": "ux-lang
+  contributors"` as a string where the schema requires an object.
+  `claude plugin validate` reports it, and both the plugin and the marketplace
+  manifest failed on it — but nothing in CI ran that check, so a plugin nobody
+  could install passed every test. `test/plugin.test.js` now pins the manifest
+  shape, the marketplace entry's `source` path, and the version and description
+  that are written down in three files each.
+- **The plugin told the model to guess a path.** `SKILL.md`, both commands and
+  both references said to fall back to `node <path-to-ux-lang-repo>/bin/ux` —
+  a placeholder that reaches the model as literal angle brackets. The chain is
+  now `ux` → `npx uxlang` → `node "${CLAUDE_PLUGIN_ROOT}/../bin/ux"`, which
+  resolves on its own, and a test fails on any angle-bracket placeholder left
+  in shipped plugin markdown.
+- **`SKILL.md` did not warn about the four traps the audit turned into
+  diagnostics.** A diagnostic is a mistake the prompt failed to prevent, and
+  `SKILL.md` is the prompt: it now states that `app` takes no indented body
+  (UX022), that only `group`/`if`/`form`/`list`/`tabs` take one (UX021), that
+  targets are PascalCase names rather than routes (UX023), and how to write a
+  quote inside a string (UX025). The skill `description` also names what a
+  person actually types — UI, page, route, user flow, wireframe — since a skill
+  that does not trigger is worth nothing. A whole-file token budget now guards
+  `SKILL.md` (~1391 of 1600); the previous budget policed only the grammar
+  section, while the whole file is what loads.
+
+
 - **Component navigation is now part of the flow graph.** `link()` checked a
   component's lists, forms and `use`s but never its `-> Name` links, so a
   dangling link inside a component was never reported and a real one never

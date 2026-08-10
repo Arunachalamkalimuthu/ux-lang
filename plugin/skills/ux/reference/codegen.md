@@ -44,8 +44,8 @@ edit .ux  ->  ux check ux/  ->  fix diagnostics  ->  generate  ->  run
 Every mention of `ux check`/`ux map` on this page is the same command
 `SKILL.md`'s Workflow section describes: try it as written first, and if
 the shell reports "command not found," fall back to
-`node <path-to-ux-lang-repo>/bin/ux check ux/` (or `... map ux/`) — no
-install needed.
+`npx uxlang check ux/` (or `... map ux/`), or with no network
+`node "${CLAUDE_PLUGIN_ROOT}/../bin/ux" check ux/` — no install needed.
 
 Every diagnostic includes the fix (rendered as `fix:` in `ux check`'s
 output). If `ux check` exits non-zero, do not generate — `ux check` is the
