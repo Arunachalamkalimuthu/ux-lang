@@ -14,17 +14,23 @@ export function link(programs) {
   const screens = new Map();
   const flows = new Map();
   const components = new Map();
-  const dataTypes = new Set();
-  const dataDecls = [];
+  // `data` went through a bare `Set.add` while every other declaration kind
+  // went through `registerDecl`, so the same `data` name in two files silently
+  // shadowed — last file won — and UX206 then reported a form field the author
+  // *had* declared as not existing. Registering it the same way makes the
+  // collision visible (UX205) and resolution first-wins like everything else.
+  const dataDecls = new Map();
 
   for (const program of programs) {
     for (const decl of program.decls) {
       if (decl.kind === 'Screen') registerDecl(screens, decl, diags);
       if (decl.kind === 'Flow') registerDecl(flows, decl, diags);
       if (decl.kind === 'Component') registerDecl(components, decl, diags);
-      if (decl.kind === 'Data') { dataTypes.add(decl.name); dataDecls.push(decl); }
+      if (decl.kind === 'Data') registerDecl(dataDecls, decl, diags);
     }
   }
+
+  const dataTypes = new Set(dataDecls.keys());
 
   // A project-wide fact, so it belongs here, not check.js: spec §5 says
   // `app` and `site` are mutually exclusive, and every project needs
@@ -52,40 +58,54 @@ export function link(programs) {
   // per spec §7's own `data/user.ux` + `data/task.ux` layout), so this
   // requires the complete `dataTypes` table above and cannot run until every
   // program has been scanned.
-  for (const decl of dataDecls) {
+  for (const decl of dataDecls.values()) {
     checkFieldTypes(decl, dataTypes, diags);
   }
 
-  const dataByName = new Map(dataDecls.map(decl => [decl.name, decl]));
+  const dataByName = dataDecls;
 
   const edges = [];
 
+  // One resolver for every navigation site in the project.
+  //
+  // `owner` is the declaration the line is written in — that is where a
+  // diagnostic belongs. `from` is the screen the edge leaves, which for a link
+  // a screen inherits from a component is the *screen*, not the component.
+  // `report` is false for those inherited links, because the component's own
+  // pass already reported them once, at the line they are written on.
+  function resolveTarget(owner, from, { target, via, line }, report) {
+    if (!target || BUILTIN_ACTIONS.has(target.name)) return;
+
+    if (screens.has(target.name)) {
+      if (from) edges.push({ from, to: target.name, via });
+      if (report) checkArity(owner, target, screens.get(target.name).params ?? [], diags, line);
+      return;
+    }
+
+    if (flows.has(target.name)) {
+      const flow = flows.get(target.name);
+      // Arity was checked only when a target resolved to a screen; a flow
+      // invoked with the wrong number of arguments passed silently.
+      if (report) checkArity(owner, target, flow.params ?? [], diags, line);
+      for (const exitName of flowExits(flow)) {
+        if (!screens.has(exitName)) continue;
+        if (from) edges.push({ from, to: exitName, via: `flow ${flow.name}` });
+      }
+      return;
+    }
+
+    if (!report) return;
+    diags.push(diag('UX200', owner.file, line ?? owner.line,
+      `\`${owner.name}\` links to \`${target.name}\`, which does not exist.`,
+      `add \`screen ${target.name}\` or \`flow ${target.name}\`, or fix the spelling`));
+  }
+
   for (const screen of screens.values()) {
-    checkListDataTypes(screen.body, dataTypes, screen.file, diags);
+    checkListDataTypes(screen.body, dataTypes, dataByName, screen.file, diags);
     checkFormDataTypes(screen.body, dataTypes, dataByName, screen.file, diags);
 
-    for (const { target, via, line } of navigationTargets(screen)) {
-      if (!target) continue;
-      if (BUILTIN_ACTIONS.has(target.name)) continue;
-
-      if (screens.has(target.name)) {
-        edges.push({ from: screen.name, to: target.name, via });
-        checkArity(screen, target, screens.get(target.name), diags, line);
-        continue;
-      }
-      if (flows.has(target.name)) {
-        const flow = flows.get(target.name);
-        for (const exitName of flowExits(flow)) {
-          if (!screens.has(exitName)) continue;
-          edges.push({ from: screen.name, to: exitName, via: `flow ${flow.name}` });
-        }
-        continue;
-      }
-
-      diags.push(diag('UX200', screen.file, line ?? screen.line,
-        `\`${screen.name}\` links to \`${target.name}\`, which does not exist.`,
-        `add \`screen ${target.name}\` or \`flow ${target.name}\`, or fix the spelling`));
-    }
+    for (const nav of navigationTargets(screen)) resolveTarget(screen, screen.name, nav, true);
+    for (const nav of inheritedTargets(screen, components)) resolveTarget(screen, screen.name, nav, false);
 
     for (const use of componentUses(screen)) {
       if (components.has(use.component)) continue;
@@ -110,8 +130,14 @@ export function link(programs) {
 
   // Components can `use` other components too, and can hold lists and forms of their own.
   for (const component of components.values()) {
-    checkListDataTypes(component.body, dataTypes, component.file, diags);
+    checkListDataTypes(component.body, dataTypes, dataByName, component.file, diags);
     checkFormDataTypes(component.body, dataTypes, dataByName, component.file, diags);
+
+    // A component's own `-> Name` links, reported once here at the line they
+    // are written on. They build no edges of their own — a component is not a
+    // place a user stands — so the edges are attributed to each screen that
+    // uses it, above.
+    for (const nav of navigationTargets(component)) resolveTarget(component, null, nav, true);
 
     for (const use of componentUses(component)) {
       if (components.has(use.component)) continue;
@@ -212,6 +238,28 @@ function* navigationTargets(screen) {
   }
 }
 
+// Every place a component a screen uses can send the user, transitively.
+//
+// A shared nav or row component is the main reason to write a component at
+// all, and its links were invisible here: the dangling ones were never
+// reported, and the real ones never became edges — so a screen whose only way
+// out lived in a component was called a dead end, its destination was called
+// unreachable, and `ux map` drew neither. `lint.js` already counts a
+// component's `-> Name` when deciding whether a flow is used; this brings the
+// linker into line with it.
+//
+// `seen` guards the component graph, which the language does not stop from
+// containing a cycle: a component may `use` itself, or two may use each other.
+function* inheritedTargets(owner, components, seen = new Set()) {
+  for (const use of componentUses(owner)) {
+    const component = components.get(use.component);
+    if (!component || seen.has(component.name)) continue;
+    seen.add(component.name);
+    yield* navigationTargets(component);
+    yield* inheritedTargets(component, components, seen);
+  }
+}
+
 // A field's type is a primitive, an inline enum, or a reference to another
 // declared `data` — and that last case is a project-wide name lookup, same
 // as a list's data type below.
@@ -229,13 +277,48 @@ function checkFieldTypes(decl, dataTypes, diags) {
 // resolve globally, no imports), so this is a linker concern, not
 // check.js's — a project conventionally keeps `data` in its own file,
 // separate from the screens whose lists reference it.
-function checkListDataTypes(elements, dataTypes, file, diags) {
+function checkListDataTypes(elements, dataTypes, dataByName, file, diags) {
   for (const list of listElements(elements)) {
-    if (list.data && !dataTypes.has(list.data)) {
+    // A `form` with no data name is UX110; a `list` with no data name used to
+    // be accepted, because the guard here was `if (list.data && …)` and the
+    // parser stores the missing name as `''`. Same omission, same severity.
+    if (!list.data) {
+      diags.push(diag('UX112', file, list.line,
+        'This `list` has no data name.',
+        'list DataName'));
+      continue;
+    }
+    if (!dataTypes.has(list.data)) {
       diags.push(diag('UX106', file, list.line,
         `\`${list.data}\` is not a declared data type.`,
         `data ${list.data}`));
+      continue;
     }
+    checkListFields(list, dataByName.get(list.data), file, diags);
+  }
+}
+
+// Only a bare name can be resolved against a `data` block. `row product.name`
+// walks a relation, `sort by due desc` carries a direction, and an expression
+// is not a field — none of those are this check's business, and guessing at
+// them would trade a silent miss for a false positive, which is worse.
+const BARE_FIELD = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+// `row` and `sort by` name fields on the list's data type, exactly as a form's
+// field lines do — and the identical typo was a hard UX206 error in a form and
+// silent here. Half the data-binding surface went unvalidated, which is worse
+// than none of it: a reader who has seen UX206 fire reasonably concludes that
+// stale field references are caught project-wide.
+function checkListFields(list, decl, file, diags) {
+  const declaredNames = decl.fields.map(f => f.name);
+  const sortKey = list.sortBy?.replace(/\s+(asc|desc)$/i, '').trim();
+  const referenced = [...list.row, ...(sortKey ? [sortKey] : [])];
+
+  for (const name of referenced) {
+    if (!BARE_FIELD.test(name) || declaredNames.includes(name)) continue;
+    diags.push(diag('UX206', file, list.line,
+      `\`${decl.name}\` has no field \`${name}\`.`,
+      formFieldFix(name, decl.name, declaredNames)));
   }
 }
 
@@ -327,15 +410,12 @@ function flowExits(flow) {
   return [...names];
 }
 
-function checkArity(from, target, declared, diags, line) {
-  const expected = declaredParams(declared).length;
-  if (target.args.length === expected) return;
+// `screen Detail(task)` and `flow archive(task)` — params live on the
+// declaration, and both kinds are checked. Taking the parameter list rather
+// than the declaration is what lets a flow target reuse this.
+function checkArity(from, target, params, diags, line) {
+  if (target.args.length === params.length) return;
   diags.push(diag('UX203', from.file, line ?? from.line,
-    `\`${target.name}\` expects ${expected} argument(s) but \`${from.name}\` passes ${target.args.length}.`,
-    `-> ${target.name}(${declaredParams(declared).join(', ')})`));
-}
-
-// `screen Detail(task)` — params live on the declaration.
-function declaredParams(screen) {
-  return screen.params ?? [];
+    `\`${target.name}\` expects ${params.length} argument(s) but \`${from.name}\` passes ${target.args.length}.`,
+    `-> ${target.name}(${params.join(', ')})`));
 }

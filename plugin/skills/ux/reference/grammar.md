@@ -19,8 +19,7 @@ format's design spec, corrected against the current implementation in
 - No semicolons, braces, or import statements.
 - One declaration per file is conventional but not enforced. (Note:
   duplicate-name checking across files — `UX205` — applies to `screen`,
-  `flow`, and `component` names. `data` names are not checked for cross-file
-  duplicates.)
+  `flow`, `component` and `data` names alike.)
 
 ## 5. Top-level declarations
 
@@ -211,14 +210,14 @@ Runs on each file independently, before any cross-file linking:
 
 Reads every file and checks what no single file can know:
 
-- **Dead links** — `-> Checkout` with no `screen Checkout`, or a `flow`'s own `go` to a screen that doesn't exist (`UX200`)
+- **Dead links** — `-> Checkout` with no `screen Checkout`, or a `flow`'s own `go` to a screen that doesn't exist (`UX200`). A `component`'s links are checked too, and count as a way out of every screen that `use`s it
 - **Unreachable screens** — defined, nothing arrows in (`UX201`)
 - **Dead ends** — a screen with no way out; `retry` doesn't count (`UX202`)
-- **Argument-count mismatches** — `Detail(task, extra)` where `screen Detail(task)` takes one argument (`UX203`). This checks arity only — it does not check that the argument's *type* matches what the target screen expects.
+- **Argument-count mismatches** — `Detail(task, extra)` where `screen Detail(task)` takes one argument (`UX203`). Checked for both screen and flow targets. This checks arity only — it does not check that the argument's *type* matches what the target expects.
 - **Unknown components** — `use Thing(...)` with no `component Thing` (`UX204`)
-- **Cross-file name collisions** — the same `screen`, `flow`, or `component` name declared in two different files (`UX205`) — the same name declared twice **within one file** is `UX107`, above, not this
+- **Cross-file name collisions** — the same `screen`, `flow`, `component` or `data` name declared in two different files (`UX205`) — the same name declared twice **within one file** is `UX107`, above, not this
 - **Unresolvable field, list, and form types** — a `data` field whose type is neither a primitive nor another declared `data` (`UX105`); a `list` or `form` naming a `data` type that was never declared (`UX106`)
-- **Unresolvable form fields** — a `form`'s field that its resolved `data` type does not declare (`UX206`) — the fix names the real fields, and suggests a specific one when the field looks like a typo of it
+- **Unresolvable form and list fields** — a `form` field, or a `list`'s `row`/`sort by` entry, that its resolved `data` type does not declare (`UX206`) — the fix names the real fields, and suggests a specific one when the field looks like a typo of it. Only bare names are resolved: a dotted path (`row product.name`) and a sort direction (`sort by due desc`) are left alone, and `where` is free text throughout
 - **Missing or ambiguous project root** — no `app`/`site` declared anywhere, or more than one declared across the project (`UX111`)
 
 Half of these are UX defects rather than code defects. A dead-end screen is not a crash; it is a user stuck, and normally nothing catches it until someone gets stuck.
@@ -269,13 +268,14 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX109 | an `action` has no target — it renders but does nothing |
 | UX110 | a `form` has no data name |
 | UX111 | the project declares no `app`/`site` root, or more than one, project-wide (linker) |
+| UX112 | a `list` has no data name |
 | UX200 | a navigation target (`-> Name`, from a screen or from a flow's `go`) does not exist |
 | UX201 | a screen is unreachable — nothing links to it |
 | UX202 | a screen has no way out (a self-loop or `action retry` alone does not count) |
 | UX203 | a navigation target expects a different number of arguments than were passed |
 | UX204 | `use` names a component that was never declared |
-| UX205 | the same `screen`, `flow`, or `component` name is declared in two different files |
-| UX206 | a `form` lists a field its resolved `data` type does not declare (linker, project-wide) |
+| UX205 | the same `screen`, `flow`, `component` or `data` name is declared in two different files |
+| UX206 | a `form` field, or a `list`'s `row`/`sort by` entry, names a field its resolved `data` type does not declare (linker, project-wide) |
 
 ## Warnings (`ux lint`)
 
