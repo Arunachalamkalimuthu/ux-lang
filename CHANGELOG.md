@@ -12,6 +12,22 @@ changes. A rule is retired rather than repurposed.
 
 ### Added
 
+- **Five new diagnostics, from an audit of the checker against its own promise.**
+  `UX021` an element that takes no indented body was given one; `UX022`
+  `app`/`site` was given an indented body; `UX023` a `->` destination that is
+  not a usable name; `UX024` an unknown branch inside a `call`; `UX112` a
+  `list` with no data name.
+  The first four are one missing rule in four places: the parser had no
+  response to input it did not consume, so where it recognised a keyword but
+  had nowhere to put what followed, it dropped it in silence — and the checker
+  cannot report what the parser threw away. A `list` indented one level too far
+  lost its required-state errors, its undeclared data type and its dangling
+  `tap` together, and `ux check` exited 0. A whole project written under
+  `app Demo` parsed to zero declarations and reported "No problems found."
+  `tap -> task-detail` did not become a dangling link, it became no link at
+  all. A misspelled `ok`/`fail` branch took its `go` with it. The lexer cannot
+  catch any of them: each depth step is exactly +1, so `UX003` never fires.
+
 - Published to npm as **`uxlang`**, so installing is `npm install -g uxlang`
   rather than a clone and a link. The hyphenated `ux-lang` was already taken by
   an unrelated package, so the repository, the site and the package differ by
@@ -20,6 +36,55 @@ changes. A rule is retired rather than repurposed.
   plugin and the examples, and leaves out the website, the benchmark and the
   tests. `prepublishOnly` runs the suite, because npm will not let you reuse a
   version number and a broken publish cannot be taken back.
+
+### Fixed
+
+- **Component navigation is now part of the flow graph.** `link()` checked a
+  component's lists, forms and `use`s but never its `-> Name` links, so a
+  dangling link inside a component was never reported and a real one never
+  became an edge — a screen whose only way out lived in a shared nav component
+  was called a dead end, its destination was called unreachable, and `ux map`
+  drew neither. `lint.js` already counted those links, so two layers of the
+  same toolchain disagreed. A component reports its own links once, at the line
+  they are written on; every screen that `use`s it inherits the edges.
+- **`screen Detail(task, mode)` parses.** The signature was read with
+  `words(text)[1]`, so a space after the comma registered the screen as
+  `Detail(task,` and produced three cascading errors whose fixes were
+  unactionable — one suggested renaming the screen to the name it already had.
+  `flow` and `component` already read the whole signature.
+- **`UX206` covers a `list`'s `row` and `sort by`**, not just a form's fields.
+  The same typo was a hard error in a form and silent in the list beside it.
+  Only bare names resolve: a dotted path walks a relation, `desc` is a
+  direction, and `where` stays free text.
+- **`UX203` checks flow targets**, not only screen targets.
+- **`UX205` covers `data`**, which took a bare `Set.add` while every other
+  declaration kind went through `registerDecl`; duplicates shadowed last-wins,
+  and `UX206` then reported a field the author had declared as not existing.
+- **`ux fmt` is idempotent.** It tested the indent a line arrived with rather
+  than the depth it is emitted at, so `ux fmt && ux fmt --check` could fail on
+  a file `ux fmt` had just written.
+- **Unknown flags and extra arguments are rejected.** `ux fmt --list-different`
+  (Prettier's spelling of `--check`) rewrote every file in place and exited 0;
+  `ux check --strict=true` turned the CI gate off silently; `ux check a b`
+  checked `a` and never mentioned `b`.
+- **`ux fmt` and `ux map` report I/O failures instead of dying.** `fmt` threw
+  part-way through its write pass on any unreadable file, leaving a project
+  half-formatted and saying nothing; it now reports each file it could not
+  handle and continues. Files that are not valid UTF-8 are refused rather than
+  rewritten, since `readFile(…, 'utf8')` turns undecodable bytes into U+FFFD
+  and writing that back makes a lossy read permanent.
+- **Symlinked directories are walked.** `readdir` reports on the link, not its
+  destination, so a linked directory took its whole subtree with it and a
+  project keeping shared screens behind a link was rejected for screens that do
+  exist.
+- **Tabs inside string literals are left alone.** `UX001` fired on any tab on
+  the line, and `ux fmt` then rewrote a tab inside a string to two spaces,
+  changing the value. A tab used for indentation is still `UX001`.
+- **A UTF-8 BOM no longer fails `UX002`** with a fix the file already satisfied.
+- **`UX305`'s fix line no longer repeats the `add:` prefix** that `report.js`
+  supplies.
+- **The website's 404 page is no longer a dead end** — it had no nav, no footer
+  and no link on it, which is `UX202` on the site of the tool that reports it.
 
 ### Changed
 
