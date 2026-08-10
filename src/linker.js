@@ -201,6 +201,28 @@ export function link(programs) {
     }
   }
 
+  // Which screens can get *back* to the entry. UX202 asks a local question —
+  // does this screen have an outgoing edge — and a group of screens that only
+  // point at each other answers yes while trapping the user in it: a two-step
+  // checkout where Step1 and Step2 link to each other and neither returns to
+  // Home checked completely clean. That is not a defect in UX202, whose
+  // contract is written down as a per-screen test in four places, so it gets
+  // its own code rather than a quiet redefinition of that one.
+  const canReachEntry = new Set(entry ? [entry] : []);
+  const backwards = new Map();
+  for (const edge of edges) {
+    if (!backwards.has(edge.to)) backwards.set(edge.to, []);
+    backwards.get(edge.to).push(edge.from);
+  }
+  const backQueue = entry ? [entry] : [];
+  while (backQueue.length) {
+    for (const from of backwards.get(backQueue.shift()) ?? []) {
+      if (canReachEntry.has(from)) continue;
+      canReachEntry.add(from);
+      backQueue.push(from);
+    }
+  }
+
   for (const screen of screens.values()) {
     if (!reachable.has(screen.name)) {
       diags.push(diag('UX201', screen.file, screen.line,
@@ -218,6 +240,16 @@ export function link(programs) {
       diags.push(diag('UX202', screen.file, screen.line,
         `\`${screen.name}\` has no way out — a user who lands here is stuck.`,
         fix));
+      continue;
+    }
+
+    // Only for screens that do have a way out — one with none is already
+    // UX202, and saying both about the same screen would be two names for the
+    // one thing the reader has to fix.
+    if (entry && !canReachEntry.has(screen.name)) {
+      diags.push(diag('UX207', screen.file, screen.line,
+        `\`${screen.name}\` has links out, but none of them lead back to \`${entry}\` — a user who comes here cannot return.`,
+        `add an action that leaves the group:  action "Home" -> ${entry}`));
     }
   }
 

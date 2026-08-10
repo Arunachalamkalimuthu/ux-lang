@@ -159,3 +159,64 @@ test('formatting leaves escapes exactly as written', () => {
   const source = 'screen Home\n  intent "Show \\"recently viewed\\" items"\n';
   assert.equal(formatSource(source), source);
 });
+
+// ---- generative round trip -------------------------------------------------
+//
+// The invariant above is checked against the repo's own examples, and every one
+// of them is already canonical — which is exactly why a real non-idempotence
+// bug lived here undetected: no committed file had a top-level declaration
+// indented by one space, so no test ever formatted one twice. Fixtures test the
+// cases someone thought of. This generates the ones nobody did.
+
+function randomSource(seed) {
+  // A seeded LCG, so a failure names a case you can re-run rather than a case
+  // that vanishes on the next run.
+  let state = seed;
+  const next = () => (state = (state * 1103515245 + 12345) & 0x7fffffff);
+  const pick = xs => xs[next() % xs.length];
+
+  const BODY = [
+    'app Demo', 'site example.com', 'data Task', 'title text required',
+    'screen Home', 'at /', 'intent "why this exists"', 'heading "Title"',
+    'text "some copy"', 'text "a # hash inside"', 'text "an \\" escaped quote"',
+    'text "a \\\\ backslash"', 'group "Section"', 'list Task', 'row title',
+    'tap -> Detail(task)', 'empty "none"', 'loading skeleton 3 rows',
+    'error "failed" action retry', 'action "Go" -> Detail',
+    'form Task', 'submit "Save" -> Home', 'component Card(x)', 'use Card(x)',
+    'flow doThing(a)', 'go Home', 'toast "done"', '# a standalone comment',
+    'if cond', 'else', 'tabs A | B', '-> Home',
+  ];
+
+  const lines = [];
+  const count = 4 + (next() % 18);
+  for (let i = 0; i < count; i++) {
+    const roll = next() % 10;
+    if (roll === 0) { lines.push(''); continue; }
+    const indent = next() % 7;                                  // includes odd indents
+    const lead = (next() % 5 === 0) ? '\t'.repeat(1 + (next() % 2)) : ' '.repeat(indent);
+    const trail = (next() % 4 === 0) ? ' '.repeat(1 + (next() % 3)) : '';
+    const comment = (next() % 6 === 0) ? '   # trailing note' : '';
+    lines.push(lead + pick(BODY) + comment + trail);
+  }
+  return lines.join('\n') + (next() % 2 ? '\n' : '');
+}
+
+test('formatting is idempotent and meaning-preserving on generated sources', () => {
+  for (let seed = 1; seed <= 400; seed++) {
+    const source = randomSource(seed);
+    const once = formatSource(source);
+    const twice = formatSource(once);
+    const label = `seed ${seed}: ${JSON.stringify(source)}`;
+
+    assert.equal(twice, once, `${label}\nformatting was not idempotent`);
+    assert.ok(isFormatted(once), `${label}\nformatSource produced output isFormatted rejects`);
+
+    const before = parse(source, 'a.ux');
+    const after = parse(once, 'a.ux');
+    assert.deepEqual(withoutLines(after.ast), withoutLines(before.ast),
+      `${label}\nformatting changed the parse tree`);
+
+    const codes = r => r.diags.filter(d => !LEXICAL.has(d.code)).map(d => d.code).sort();
+    assert.deepEqual(codes(after), codes(before), `${label}\nformatting changed the diagnostics`);
+  }
+});

@@ -282,6 +282,7 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX203 | a navigation target, a flow's `go`, or a `use` passes a different number of arguments than the declaration takes |
 | UX204 | `use` names a component that was never declared |
 | UX205 | the same `screen`, `flow`, `component` or `data` name is declared in two different files |
+| UX207 | a screen has links out, but none of them can reach the entry screen — a group of screens the user cannot leave |
 | UX206 | a `form` field, or a `list`'s `row`/`sort by` entry, names a field its resolved `data` type does not declare (linker, project-wide) |
 
 ## Warnings (`ux lint`)

@@ -642,3 +642,44 @@ test("a shadowed duplicate data declaration's own field errors are still reporte
   assert.equal(diags.filter(d => d.code === 'UX205').length, 1);
   assert.equal(diags.filter(d => d.code === 'UX105').length, 1, "the shadowed copy's unknown field type is reported");
 });
+
+test('a group of screens that cannot get back to the entry is reported', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Begin" -> Step1\n',
+    'screen Step1\n  intent "Collect the address"\n  action "Next" -> Step2\n',
+    'screen Step2\n  intent "Collect the payment"\n  action "Back" -> Step1\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX207');
+  assert.deepEqual(found.map(d => d.message.match(/`(\w+)`/)[1]).sort(), ['Step1', 'Step2']);
+});
+
+test('a healthy app reports no trap', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Begin" -> Step1\n',
+    'screen Step1\n  intent "Collect the address"\n  action "Next" -> Step2\n',
+    'screen Step2\n  intent "Collect the payment"\n  action "Done" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX207'), []);
+});
+
+test('a screen with no way out is UX202 only, not UX202 and UX207 both', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Stuck\n',
+    'screen Stuck\n  intent "A place with no exit"\n  text "stuck"\n',
+  ];
+  const diags = diagsOf(files);
+  assert.equal(diags.filter(d => d.code === 'UX202').length, 1);
+  assert.deepEqual(diags.filter(d => d.code === 'UX207'), []);
+});
+
+test('the entry screen itself is never a trap', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX207'), []);
+});
