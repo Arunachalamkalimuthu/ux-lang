@@ -37,6 +37,23 @@ changes. A rule is retired rather than repurposed.
   tests. `prepublishOnly` runs the suite, because npm will not let you reuse a
   version number and a broken publish cannot be taken back.
 
+### Changed
+
+- **Strings understand `\"` and `\\`.** A `.ux` string could not contain a quote
+  at all: `intent "He said \"go\" once"` parsed to `He said \` — truncated at
+  the escape, with no diagnostic. Those two escapes are now the entire
+  vocabulary, and any other `\x` is `UX025` rather than a backslash that
+  quietly disappears, which leaves room to give `\n` a meaning later without
+  changing what any file means today.
+  **This is a breaking change** for a string containing a literal backslash:
+  `text "C:\temp"` is now `UX025` and must be written `"C:\\temp"`. Nothing in
+  the repository was affected.
+  One consequence worth naming: "am I inside a string right now" is asked by
+  five separate scans — comment stripping, `UX004`, tab expansion, finding a
+  `->` or a ` where `, and reading the value. They now share one
+  implementation. Five private copies of that rule would drift, and drift is
+  exactly how `UX004` first shipped broken.
+
 ### Fixed
 
 - **Component navigation is now part of the flow graph.** `link()` checked a

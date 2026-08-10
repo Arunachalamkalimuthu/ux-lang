@@ -1,4 +1,5 @@
 import { diag } from './diagnostics.js';
+import { stringMask } from './parse-line.js';
 
 // The one walk that decides what "inside a string" means for a raw line —
 // used both to strip a trailing `#` comment (stop at `#` only when *not*
@@ -22,25 +23,28 @@ import { diag } from './diagnostics.js';
 // cannot change the parse, which two implementations of this would eventually
 // break.
 export function expandTabs(text) {
+  const { inside } = stringMask(text);
   let out = '';
-  let inString = false;
-  for (const ch of text) {
-    if (ch === '"') inString = !inString;
-    if (ch === '\t' && !inString) { out += '  '; continue; }
-    out += ch;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '\t' && !inside[i]) { out += '  '; continue; }
+    out += text[i];
   }
   return out;
 }
 
 function scanLine(text) {
-  let stripped = '';
-  let inString = false;
-  for (const ch of text) {
-    if (ch === '"') inString = !inString;
-    if (ch === '#' && !inString) break;
-    stripped += ch;
+  const { escaped, commentAt, unterminated } = stringMask(text);
+  const end = commentAt === -1 ? text.length : commentAt;
+  const badEscapes = [];
+
+  for (let i = 0; i < end; i++) {
+    // `\"` and `\\` are the whole vocabulary. Anything else would quietly lose
+    // its backslash when the value is unescaped, which is the silent-change
+    // failure this language exists to avoid — so it is named instead.
+    if (escaped[i] && text[i] !== '"' && text[i] !== '\\') badEscapes.push(text[i]);
   }
-  return { stripped, unterminated: inString };
+
+  return { stripped: text.slice(0, end), unterminated, badEscapes };
 }
 
 export function lex(source, file) {
@@ -62,7 +66,12 @@ export function lex(source, file) {
         'replace each tab with two spaces'));
     }
 
-    const { stripped, unterminated } = scanLine(expanded);
+    const { stripped, unterminated, badEscapes } = scanLine(expanded);
+    for (const ch of badEscapes) {
+      diags.push(diag('UX025', file, line,
+        `\`\\${ch}\` is not an escape this language knows.`,
+        'the only escapes are `\\"` for a quote and `\\\\` for a backslash — write `\\\\` if you meant a literal backslash'));
+    }
     if (unterminated) {
       diags.push(diag('UX004', file, line,
         `Line ${line} has an unterminated string (a \`"\` is opened but never closed outside any \`#\` comment).`,

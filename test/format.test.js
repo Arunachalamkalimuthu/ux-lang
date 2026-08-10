@@ -154,3 +154,8 @@ test('formatting does not rewrite a tab inside a string', () => {
 test('formatting still expands a tab used for indentation', () => {
   assert.match(formatSource('screen Home\n\ttext "x"\n'), /\n  text "x"/);
 });
+
+test('formatting leaves escapes exactly as written', () => {
+  const source = 'screen Home\n  intent "Show \\"recently viewed\\" items"\n';
+  assert.equal(formatSource(source), source);
+});

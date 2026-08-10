@@ -9,8 +9,12 @@ format's design spec, corrected against the current implementation in
 
 - Indentation is significant. Two spaces per level. Tabs are an error.
 - `#` begins a comment to end of line.
-- Strings are double-quoted. No interpolation in v1. A line with an odd
-  number of `"` characters — an unclosed string — is a lexer error (`UX004`),
+- Strings are double-quoted. No interpolation in v1. Inside a string, `\"` is a
+  literal quote and `\\` is a literal backslash — those two are the entire
+  escape vocabulary, and any other `\x` is `UX025` rather than a backslash that
+  quietly disappears. A backslash cannot escape the end of a line, so a line
+  ending in one is an unclosed string. A line with an unescaped-quote count
+  that leaves a string open — an unclosed string — is a lexer error (`UX004`),
   not a silently-swallowed comment or a truncated value: before this was
   checked, `heading "My tasks` (missing the closing quote) parsed to the text
   `"My tasks` verbatim, and an unclosed string ahead of a `#` swallowed the
@@ -241,6 +245,7 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX002 | an indent is not a multiple of two spaces |
 | UX003 | a line is indented more than one level deeper than the line above it |
 | UX004 | a line has an unterminated string (an odd number of `"` characters) |
+| UX025 | an unknown escape inside a string (the only escapes are `\"` and `\\`) |
 | UX010 | unknown top-level keyword (must be one of `app`, `site`, `data`, `screen`, `component`, `flow`) |
 | UX011 | a field name is declared twice in one `data` block |
 | UX012 | a field has no type (including a bare `required` with nothing before the type) |

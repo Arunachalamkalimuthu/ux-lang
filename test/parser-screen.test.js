@@ -274,3 +274,9 @@ test('a non-arrow child of `tabs` reports UX021 rather than being dropped', () =
   const { diags } = parse(source, 'a.ux');
   assert.equal(diags.filter(d => d.code === 'UX021').length, 1);
 });
+
+test('a screen intent can contain an escaped quote', () => {
+  const { ast, diags } = parse('screen Home\n  intent "Show \\"recently viewed\\" items"\n  text "x"\n', 'a.ux');
+  assert.deepEqual(diags, []);
+  assert.equal(ast.decls[0].intent, 'Show "recently viewed" items');
+});
