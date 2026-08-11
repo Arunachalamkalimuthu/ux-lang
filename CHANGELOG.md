@@ -12,6 +12,22 @@ changes. A rule is retired rather than repurposed.
 
 ### Added
 
+- **Five new diagnostics, from an audit of the checker against its own promise.**
+  `UX021` an element that takes no indented body was given one; `UX022`
+  `app`/`site` was given an indented body; `UX023` a `->` destination that is
+  not a usable name; `UX024` an unknown branch inside a `call`; `UX112` a
+  `list` with no data name.
+  The first four are one missing rule in four places: the parser had no
+  response to input it did not consume, so where it recognised a keyword but
+  had nowhere to put what followed, it dropped it in silence — and the checker
+  cannot report what the parser threw away. A `list` indented one level too far
+  lost its required-state errors, its undeclared data type and its dangling
+  `tap` together, and `ux check` exited 0. A whole project written under
+  `app Demo` parsed to zero declarations and reported "No problems found."
+  `tap -> task-detail` did not become a dangling link, it became no link at
+  all. A misspelled `ok`/`fail` branch took its `go` with it. The lexer cannot
+  catch any of them: each depth step is exactly +1, so `UX003` never fires.
+
 - Published to npm as **`uxlang`**, so installing is `npm install -g uxlang`
   rather than a clone and a link. The hyphenated `ux-lang` was already taken by
   an unrelated package, so the repository, the site and the package differ by
@@ -20,6 +36,126 @@ changes. A rule is retired rather than repurposed.
   plugin and the examples, and leaves out the website, the benchmark and the
   tests. `prepublishOnly` runs the suite, because npm will not let you reuse a
   version number and a broken publish cannot be taken back.
+
+### Changed
+
+- **`# ux:ignore UX305` suppresses a warning on that line.** `lint.js` has
+  argued since it was written that "a lint rule that cannot be ignored is an
+  error wearing the wrong label", and that every rule there has a legitimate
+  exception — while offering no way to take one, so a single justified
+  exception was a reason to stop running lint at all. Two limits keep the
+  escape hatch from becoming a hole: **errors cannot be ignored** (`UX026`
+  names the attempt and the error still stands — a checker whose findings can
+  be silenced one comment at a time is not promising that a dead end will not
+  ship), and an ignore that **suppresses nothing** reports `UX027`, because a
+  suppression outliving its problem is how the next reader learns to distrust
+  every comment in the file.
+
+- **Exit code 2 now means the invocation or the setup is wrong**, not the
+  project: an unknown flag, a directory that isn't there, a `.ux` file that
+  cannot be read, a `.build` that cannot be written. Exit 1 keeps its meaning —
+  the project has errors, or a warning under `--strict`, or `fmt --check` found
+  a file it would rewrite. Everything used to be 1, so a script could not tell
+  a missing directory from a dead-end screen. **This changes the exit code** of
+  every setup failure, which for CI is the point: 1 means fix the app, 2 means
+  fix the setup.
+- **`--format json` on `check`, `lint` and `map`.** The stated audience is
+  models and CI and both were scraping a format built for a person; the
+  diagnostics already carried everything the report needs. `map --format json`
+  returns `entry`, `screens` and `edges`. `.build/app.map` stays the text
+  rendering whatever `--format` says — it is a record a generator and a human
+  both read, and a file whose contents depend on a flag from one run is not one
+  you can rely on. `--format=json` is accepted as well as `--format json`.
+
+- **Strings understand `\"` and `\\`.** A `.ux` string could not contain a quote
+  at all: `intent "He said \"go\" once"` parsed to `He said \` — truncated at
+  the escape, with no diagnostic. Those two escapes are now the entire
+  vocabulary, and any other `\x` is `UX025` rather than a backslash that
+  quietly disappears, which leaves room to give `\n` a meaning later without
+  changing what any file means today.
+  **This is a breaking change** for a string containing a literal backslash:
+  `text "C:\temp"` is now `UX025` and must be written `"C:\\temp"`. Nothing in
+  the repository was affected.
+  One consequence worth naming: "am I inside a string right now" is asked by
+  five separate scans — comment stripping, `UX004`, tab expansion, finding a
+  `->` or a ` where `, and reading the value. They now share one
+  implementation. Five private copies of that rule would drift, and drift is
+  exactly how `UX004` first shipped broken.
+
+### Fixed
+
+- **The Claude Code plugin manifest was invalid and would not load.**
+  `plugin/.claude-plugin/plugin.json` carried `"author": "ux-lang
+  contributors"` as a string where the schema requires an object.
+  `claude plugin validate` reports it, and both the plugin and the marketplace
+  manifest failed on it — but nothing in CI ran that check, so a plugin nobody
+  could install passed every test. `test/plugin.test.js` now pins the manifest
+  shape, the marketplace entry's `source` path, and the version and description
+  that are written down in three files each.
+- **The plugin told the model to guess a path.** `SKILL.md`, both commands and
+  both references said to fall back to `node <path-to-ux-lang-repo>/bin/ux` —
+  a placeholder that reaches the model as literal angle brackets. The chain is
+  now `ux` → `npx uxlang` → `node "${CLAUDE_PLUGIN_ROOT}/../bin/ux"`, which
+  resolves on its own, and a test fails on any angle-bracket placeholder left
+  in shipped plugin markdown.
+- **`SKILL.md` did not warn about the four traps the audit turned into
+  diagnostics.** A diagnostic is a mistake the prompt failed to prevent, and
+  `SKILL.md` is the prompt: it now states that `app` takes no indented body
+  (UX022), that only `group`/`if`/`form`/`list`/`tabs` take one (UX021), that
+  targets are PascalCase names rather than routes (UX023), and how to write a
+  quote inside a string (UX025). The skill `description` also names what a
+  person actually types — UI, page, route, user flow, wireframe — since a skill
+  that does not trigger is worth nothing. A whole-file token budget now guards
+  `SKILL.md` (~1391 of 1600); the previous budget policed only the grammar
+  section, while the whole file is what loads.
+
+
+- **Component navigation is now part of the flow graph.** `link()` checked a
+  component's lists, forms and `use`s but never its `-> Name` links, so a
+  dangling link inside a component was never reported and a real one never
+  became an edge — a screen whose only way out lived in a shared nav component
+  was called a dead end, its destination was called unreachable, and `ux map`
+  drew neither. `lint.js` already counted those links, so two layers of the
+  same toolchain disagreed. A component reports its own links once, at the line
+  they are written on; every screen that `use`s it inherits the edges.
+- **`screen Detail(task, mode)` parses.** The signature was read with
+  `words(text)[1]`, so a space after the comma registered the screen as
+  `Detail(task,` and produced three cascading errors whose fixes were
+  unactionable — one suggested renaming the screen to the name it already had.
+  `flow` and `component` already read the whole signature.
+- **`UX206` covers a `list`'s `row` and `sort by`**, not just a form's fields.
+  The same typo was a hard error in a form and silent in the list beside it.
+  Only bare names resolve: a dotted path walks a relation, `desc` is a
+  direction, and `where` stays free text.
+- **`UX203` checks flow targets**, not only screen targets.
+- **`UX205` covers `data`**, which took a bare `Set.add` while every other
+  declaration kind went through `registerDecl`; duplicates shadowed last-wins,
+  and `UX206` then reported a field the author had declared as not existing.
+- **`ux fmt` is idempotent.** It tested the indent a line arrived with rather
+  than the depth it is emitted at, so `ux fmt && ux fmt --check` could fail on
+  a file `ux fmt` had just written.
+- **Unknown flags and extra arguments are rejected.** `ux fmt --list-different`
+  (Prettier's spelling of `--check`) rewrote every file in place and exited 0;
+  `ux check --strict=true` turned the CI gate off silently; `ux check a b`
+  checked `a` and never mentioned `b`.
+- **`ux fmt` and `ux map` report I/O failures instead of dying.** `fmt` threw
+  part-way through its write pass on any unreadable file, leaving a project
+  half-formatted and saying nothing; it now reports each file it could not
+  handle and continues. Files that are not valid UTF-8 are refused rather than
+  rewritten, since `readFile(…, 'utf8')` turns undecodable bytes into U+FFFD
+  and writing that back makes a lossy read permanent.
+- **Symlinked directories are walked.** `readdir` reports on the link, not its
+  destination, so a linked directory took its whole subtree with it and a
+  project keeping shared screens behind a link was rejected for screens that do
+  exist.
+- **Tabs inside string literals are left alone.** `UX001` fired on any tab on
+  the line, and `ux fmt` then rewrote a tab inside a string to two spaces,
+  changing the value. A tab used for indentation is still `UX001`.
+- **A UTF-8 BOM no longer fails `UX002`** with a fix the file already satisfied.
+- **`UX305`'s fix line no longer repeats the `add:` prefix** that `report.js`
+  supplies.
+- **The website's 404 page is no longer a dead end** — it had no nav, no footer
+  and no link on it, which is `UX202` on the site of the tool that reports it.
 
 ### Changed
 

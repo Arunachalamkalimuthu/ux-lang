@@ -192,3 +192,91 @@ test('regression: a screen body with no else anywhere still parses with no diagn
   const { diags } = parse(SCREEN, 'a.ux');
   assert.equal(diags.length, 0);
 });
+
+// ---- audit regressions -----------------------------------------------------
+
+test('a screen declared with spaced parameters keeps its name and params', () => {
+  const { ast, diags } = parse('screen Detail(task, mode)\n  intent "Read one"\n  text "x"\n', 'a.ux');
+  assert.deepEqual(diags, []);
+  assert.equal(ast.decls[0].name, 'Detail');
+  assert.deepEqual(ast.decls[0].params, ['task', 'mode']);
+});
+
+test('an element that takes no indented body reports UX021 instead of dropping it', () => {
+  const source = 'screen Home\n  intent "Land"\n  text "Everything"\n    list Task\n      row title\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX021').length, 1);
+  assert.match(diags.find(d => d.code === 'UX021').message, /`text`/);
+});
+
+test('UX021 names each leaf element that was given a body', () => {
+  for (const keyword of ['heading "H"', 'text "T"', 'show a.b', 'action "A" -> Home', 'use Card']) {
+    const source = `screen Home\n  intent "Land"\n  ${keyword}\n    text "orphan"\n`;
+    const { diags } = parse(source, 'a.ux');
+    assert.equal(diags.filter(d => d.code === 'UX021').length, 1, `expected UX021 for \`${keyword}\``);
+  }
+});
+
+test('a `group` still takes an indented body without UX021', () => {
+  const { diags } = parse('screen Home\n  intent "Land"\n  group "Section"\n    text "inside"\n', 'a.ux');
+  assert.deepEqual(diags.filter(d => d.code === 'UX021'), []);
+});
+
+test('an indented block under `app` reports UX022 rather than vanishing', () => {
+  const source = 'app Demo\n  screen Home\n    at /\n    intent "Land"\n    text "hi"\n';
+  const { ast, diags } = parse(source, 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX022').length, 1);
+  assert.equal(ast.decls.length, 0, 'the nested declarations are still not parsed — UX022 is what tells you so');
+});
+
+test('an indented block under `site` reports UX022', () => {
+  const { diags } = parse('site example.com\n  screen Home\n    intent "Land"\n', 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX022').length, 1);
+});
+
+test('`app` with no body stays silent', () => {
+  const { diags } = parse('app Demo\n', 'a.ux');
+  assert.deepEqual(diags.filter(d => d.code === 'UX022'), []);
+});
+
+test('a `tap` target that cannot be parsed reports UX023 instead of becoming no target', () => {
+  const source = 'screen Home\n  intent "Land"\n  list Task\n    tap -> task-detail\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX023').length, 1);
+  assert.match(diags.find(d => d.code === 'UX023').message, /task-detail/);
+});
+
+test('an empty arrow target reports UX023', () => {
+  const { diags } = parse('screen Home\n  intent "Land"\n  list Task\n    tap ->\n', 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX023').length, 1);
+});
+
+test('a `form submit` target that cannot be parsed reports UX023', () => {
+  const source = 'screen Home\n  intent "Land"\n  form Task\n    submit "Save" -> save.thing\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX023').length, 1);
+});
+
+test('a `tabs` target that cannot be parsed reports UX023', () => {
+  const source = 'screen Home\n  intent "Land"\n  tabs A | B\n    -> not-a-name\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX023').length, 1);
+});
+
+test('a well-formed tap target stays silent', () => {
+  const source = 'screen Home\n  intent "Land"\n  list Task\n    tap -> Detail(task)\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.deepEqual(diags.filter(d => d.code === 'UX023'), []);
+});
+
+test('a non-arrow child of `tabs` reports UX021 rather than being dropped', () => {
+  const source = 'screen Home\n  intent "Land"\n  tabs A | B\n    text "dropped"\n';
+  const { diags } = parse(source, 'a.ux');
+  assert.equal(diags.filter(d => d.code === 'UX021').length, 1);
+});
+
+test('a screen intent can contain an escaped quote', () => {
+  const { ast, diags } = parse('screen Home\n  intent "Show \\"recently viewed\\" items"\n  text "x"\n', 'a.ux');
+  assert.deepEqual(diags, []);
+  assert.equal(ast.decls[0].intent, 'Show "recently viewed" items');
+});

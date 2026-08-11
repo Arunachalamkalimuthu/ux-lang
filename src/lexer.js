@@ -1,4 +1,5 @@
 import { diag } from './diagnostics.js';
+import { stringMask } from './parse-line.js';
 
 // The one walk that decides what "inside a string" means for a raw line —
 // used both to strip a trailing `#` comment (stop at `#` only when *not*
@@ -13,32 +14,81 @@ import { diag } from './diagnostics.js';
 // just a character inside the string), so `text "Nothing overdue # ok`
 // (no closing quote) is still correctly flagged: the walk never reaches a
 // point where it's "not in a string" before running off the end of the line.
-function scanLine(text) {
-  let stripped = '';
-  let inString = false;
-  for (const ch of text) {
-    if (ch === '"') inString = !inString;
-    if (ch === '#' && !inString) break;
-    stripped += ch;
+// Tabs become two spaces so the depth the parser computes matches the depth a
+// reader sees — but only outside a string. A tab *inside* a string literal is
+// a character the author wrote: replacing it silently changed the value, and
+// UX001 told them their indentation was wrong when nothing about their
+// indentation was. Exported so `format.js` normalises tabs by this exact rule
+// and not a second copy of it; the formatter's whole contract is that it
+// cannot change the parse, which two implementations of this would eventually
+// break.
+export function expandTabs(text) {
+  const { inside } = stringMask(text);
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '\t' && !inside[i]) { out += '  '; continue; }
+    out += text[i];
   }
-  return { stripped, unterminated: inString };
+  return out;
+}
+
+function scanLine(text) {
+  const { escaped, commentAt, unterminated } = stringMask(text);
+  const end = commentAt === -1 ? text.length : commentAt;
+  const badEscapes = [];
+  const comment = commentAt === -1 ? '' : text.slice(commentAt + 1);
+
+  for (let i = 0; i < end; i++) {
+    // `\"` and `\\` are the whole vocabulary. Anything else would quietly lose
+    // its backslash when the value is unescaped, which is the silent-change
+    // failure this language exists to avoid — so it is named instead.
+    if (escaped[i] && text[i] !== '"' && text[i] !== '\\') badEscapes.push(text[i]);
+  }
+
+  return { stripped: text.slice(0, end), unterminated, badEscapes, comment };
+}
+
+// `# ux:ignore UX305` — the only directive, and it has to come out of the
+// comment before the comment is thrown away. Codes are separated by commas or
+// spaces; anything that is not this exact shape stays an ordinary comment, so
+// a note that merely mentions a code suppresses nothing.
+const IGNORE = /^\s*ux:ignore\s+(.+?)\s*$/;
+
+function ignoreDirective(comment) {
+  const match = IGNORE.exec(comment);
+  if (!match) return null;
+  const codes = match[1].split(/[,\s]+/).filter(Boolean);
+  return codes.length ? codes : null;
 }
 
 export function lex(source, file) {
   const diags = [];
   const lines = [];
+  const ignores = [];
   let previousDepth = -1;
 
-  source.split('\n').forEach((raw, index) => {
+  // A byte-order mark is an encoding marker, not content. Left in place it
+  // became a one-character indent on line 1 — UX002, "Indent of 1 spaces is
+  // not a multiple of 2", with a fix ("use 0 spaces") the file already
+  // satisfied, on a file that looks correct in every editor.
+  source.replace(/^﻿/, '').split('\n').forEach((raw, index) => {
     const line = index + 1;
 
-    if (raw.includes('\t')) {
+    const expanded = expandTabs(raw);
+    if (expanded !== raw) {
       diags.push(diag('UX001', file, line,
         'Tabs cannot be used for indentation.',
         'replace each tab with two spaces'));
     }
 
-    const { stripped, unterminated } = scanLine(raw.replace(/\t/g, '  '));
+    const { stripped, unterminated, badEscapes, comment } = scanLine(expanded);
+    const codes = ignoreDirective(comment);
+    if (codes) ignores.push({ line, codes });
+    for (const ch of badEscapes) {
+      diags.push(diag('UX025', file, line,
+        `\`\\${ch}\` is not an escape this language knows.`,
+        'the only escapes are `\\"` for a quote and `\\\\` for a backslash — write `\\\\` if you meant a literal backslash'));
+    }
     if (unterminated) {
       diags.push(diag('UX004', file, line,
         `Line ${line} has an unterminated string (a \`"\` is opened but never closed outside any \`#\` comment).`,
@@ -73,7 +123,7 @@ export function lex(source, file) {
     previousDepth = depth;
   });
 
-  return { lines, diags };
+  return { lines, diags, ignores };
 }
 
 export function treeify(lines) {

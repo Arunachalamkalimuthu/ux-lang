@@ -172,7 +172,7 @@ function checkInertLists(owners, diags) {
       if (stateAction) continue;
       diags.push(diag('UX305', owner.file, element.line,
         'Nothing in this list can be acted on.',
-        `add:  tap -> SomeScreen(${(element.data ?? 'item').toLowerCase()})`,
+        `tap -> SomeScreen(${(element.data ?? 'item').toLowerCase()})`,
         WARNING));
     }
   }

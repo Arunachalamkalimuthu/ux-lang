@@ -35,3 +35,24 @@ test('parseString pulls a leading quoted string', () => {
 test('words splits on whitespace', () => {
   assert.deepEqual(words('  title   text  required '), ['title', 'text', 'required']);
 });
+
+// ---- string escapes --------------------------------------------------------
+
+test('parseString unescapes an escaped quote', () => {
+  assert.deepEqual(parseString('"He said \\"go\\" once"'),
+    { value: 'He said "go" once', rest: '' });
+});
+
+test('parseString unescapes an escaped backslash', () => {
+  assert.deepEqual(parseString('"a\\\\b"'), { value: 'a\\b', rest: '' });
+});
+
+test('an escaped quote does not end the string, so the rest is what follows the real one', () => {
+  assert.deepEqual(parseString('"say \\"hi\\"" -> Next'),
+    { value: 'say "hi"', rest: '-> Next' });
+});
+
+test('splitArrow ignores an arrow inside a string that contains an escaped quote', () => {
+  assert.deepEqual(splitArrow('action "a \\" -> b"'),
+    { left: 'action "a \\" -> b"', right: null });
+});

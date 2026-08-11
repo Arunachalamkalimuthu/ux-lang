@@ -24,10 +24,28 @@ function keywordFix(word, keywords, display = keywords) {
 
 const TOP_LEVEL = ['app', 'site', 'data', 'screen', 'component', 'flow'];
 
+// The one rule this parser was missing: nothing the author wrote may be
+// discarded in silence.
+//
+// Every keyword below reads its children or it does not. The ones that do not
+// used to `return`/`break` while `treeify` had already hung an indented block
+// underneath them — so the block existed in the line tree and was visited by
+// nobody. That is the worst failure this tool can have, because the checker
+// cannot report what the parser threw away: a list with no `empty` case, an
+// undeclared data type and a dangling `tap` all vanished together and
+// `ux check` exited 0. Two spaces of indentation switched off every rule the
+// language calls strict. So a keyword that takes no body now says so.
+function noBody(node, keyword, file, diags, code, fix) {
+  if (node.children.length === 0) return;
+  diags.push(diag(code, file, node.children[0].line,
+    `\`${keyword}\` takes no indented body, so the ${node.children.length} line(s) under it are not part of this file.`,
+    fix));
+}
+
 export function parse(source, file) {
-  const { lines, diags } = lex(source, file);
+  const { lines, diags, ignores } = lex(source, file);
   const root = treeify(lines);
-  const ast = { kind: 'Program', file, root: null, decls: [] };
+  const ast = { kind: 'Program', file, root: null, decls: [], ignores };
 
   for (const node of root.children) {
     const [keyword, ...rest] = words(node.text);
@@ -36,6 +54,14 @@ export function parse(source, file) {
     switch (keyword) {
       case 'app':
       case 'site':
+        // `app`/`site` name the project and take no body. They were the only
+        // two declaration keywords that read neither their children nor
+        // complained about them: `treeify` nests every following declaration
+        // inside an indented block, so a whole project written under
+        // `app Demo` parsed to zero decls and checked clean — the
+        // empty-green-checkmark case, arriving through indentation.
+        noBody(node, keyword, file, diags, 'UX022',
+          `out-dent them to column 0 — \`${keyword}\` names the project, it does not contain it`);
         ast.root = { kind: keyword === 'app' ? 'App' : 'Site', name, line: node.line };
         break;
       case 'data':
@@ -150,7 +176,14 @@ const LIST_DISPLAY = ['sort by', 'row', 'tap', 'empty', 'loading', 'error'];
 const ELEMENT_KEYWORDS = ['heading', 'text', 'show', 'group', 'tabs', 'if', 'action', 'form', 'list', 'use'];
 
 function parseScreen(node, file, diags) {
-  const signature = words(node.text)[1] ?? '';
+  // The whole rest of the line, not `words(...)[1]` — a signature is one
+  // token only when it has no spaces, and `screen Detail(task, mode)` is the
+  // spelling the reference, the tests and the linker's own UX203 fix line all
+  // use. Splitting on whitespace registered that screen as `Detail(task,` and
+  // produced three cascading errors whose fixes were unactionable (one of them
+  // suggested renaming the screen to the name it already had). `flow` and
+  // `component` read their signatures this way already.
+  const signature = node.text.slice('screen'.length).trim();
   const parsed = parseTarget(signature);
   const screen = {
     kind: 'Screen',
@@ -229,9 +262,20 @@ function parseBind(node) {
   return bind;
 }
 
+// The elements that read `node.children`. Everything else in ELEMENT_KEYWORDS
+// is a leaf, and gets UX021 when it is given a body — `group` is the keyword
+// that wants an indented block, and it sits next to `heading` in every example,
+// which is exactly why the slip is easy to make.
+const CONTAINER_ELEMENTS = new Set(['group', 'if', 'form', 'list', 'tabs']);
+
 function parseElement(node, file, diags) {
   const [keyword] = words(node.text);
   const rest = node.text.slice(keyword.length).trim();
+
+  if (ELEMENT_KEYWORDS.includes(keyword) && !CONTAINER_ELEMENTS.has(keyword)) {
+    noBody(node, keyword, file, diags, 'UX021',
+      `out-dent them to sit beside \`${keyword}\`, or wrap them in \`group "…"\` if they belong together`);
+  }
 
   switch (keyword) {
     case 'heading':
@@ -251,12 +295,21 @@ function parseElement(node, file, diags) {
     case 'tabs': {
       const items = rest.split('|').map(s => s.trim()).filter(Boolean);
       const arrowChildren = node.children.filter(c => c.text.startsWith('->'));
+      // `tabs` reads only its `->` children. Anything else indented under it
+      // was filtered away and never seen again.
+      for (const stray of node.children.filter(c => !c.text.startsWith('->'))) {
+        diags.push(diag('UX021', file, stray.line,
+          '`tabs` reads only its `->` destination, so this line is not part of the screen.',
+          'out-dent it to sit beside `tabs`, or give the tab its own screen'));
+      }
       if (arrowChildren.length > 1) {
         diags.push(diag('UX020', file, node.line,
           '`tabs` supports a single destination, but this one has more than one `->` child.',
           'give each tab its own screen and use `action "…" -> Screen` links for per-tab destinations — `tabs` takes one arrow for the whole bar, not one per tab'));
       }
-      const target = arrowChildren[0] ? parseTarget(arrowChildren[0].text.slice(2)) : null;
+      const target = arrowChildren[0]
+        ? navTarget(arrowChildren[0].text.slice(2), 'tabs', file, arrowChildren[0].line, diags)
+        : null;
       return { kind: 'Tabs', items, target, line: node.line };
     }
     case 'if':
@@ -264,7 +317,7 @@ function parseElement(node, file, diags) {
     case 'action':
       return parseAction(node.text, node.line);
     case 'form':
-      return parseForm(node, rest);
+      return parseForm(node, rest, file, diags);
     case 'list':
       return parseList(node, rest, file, diags);
     case 'use': {
@@ -277,6 +330,29 @@ function parseElement(node, file, diags) {
         keywordFix(keyword, ELEMENT_KEYWORDS)));
       return null;
   }
+}
+
+// A destination the author wrote and `parseTarget` could not read.
+//
+// It used to be stored as `null` and then skipped by the linker's
+// `if (!target) continue` — so `tap -> task-detail` did not become a dangling
+// link, it became no link at all, and UX200 never ran. `action` escaped this
+// only by accident, because UX109 independently reports an action with no
+// target; the other four navigation sites had no such backstop. Note the
+// asymmetry that made it convincing: `screen task-detail` is *accepted* as a
+// declaration (a UX304 style warning at most), so the language says kebab
+// names are legal-but-unstyled while every reference to one was deleted.
+function navTarget(raw, what, file, line, diags) {
+  const text = (raw ?? '').trim();
+  const target = parseTarget(text);
+  if (target) return target;
+
+  diags.push(diag('UX023', file, line,
+    text === ''
+      ? `This \`${what}\` has \`->\` but no destination.`
+      : `\`${text}\` is not a usable ${what} target.`,
+    'name a screen or flow — letters, digits and `_`, starting with a letter, as in `Detail` or `Detail(task)`'));
+  return null;
 }
 
 function parseIf(node, cond, file, diags) {
@@ -294,13 +370,18 @@ function parseAction(text, line) {
   return { kind: 'Action', label, target, line };
 }
 
-function parseForm(node, rest) {
+function parseForm(node, rest, file, diags) {
   const form = { kind: 'Form', data: rest.trim(), fields: [], submit: null, line: node.line };
   for (const child of node.children) {
     if (words(child.text)[0] === 'submit') {
       const { left, right } = splitArrow(child.text);
       const str = parseString(left.slice('submit'.length).trim());
-      form.submit = { label: str ? str.value : null, target: right ? parseTarget(right) : null };
+      // Only an arrow that is present but unreadable is UX023. A `submit` with
+      // no `->` at all is a different question, and not this one.
+      form.submit = {
+        label: str ? str.value : null,
+        target: right === null ? null : navTarget(right, 'submit', file, child.line, diags),
+      };
       continue;
     }
     // `title required` -> { name: 'title', modifiers: ['required'] }. The
@@ -330,7 +411,11 @@ function parseList(node, rest, file, diags) {
 
     if (keyword === 'sort') { list.sortBy = body.replace(/^by\s+/, '').trim(); continue; }
     if (keyword === 'row') { list.row = body.split(',').map(s => s.trim()).filter(Boolean); continue; }
-    if (keyword === 'tap') { list.tap = parseTarget(splitArrow(child.text).right ?? ''); continue; }
+    if (keyword === 'tap') {
+      const { right } = splitArrow(child.text);
+      list.tap = right === null ? null : navTarget(right, 'tap', file, child.line, diags);
+      continue;
+    }
     if (keyword === 'empty' || keyword === 'loading' || keyword === 'error') {
       list.states[keyword] = parseState(child.text, keyword, child.line);
       continue;
@@ -401,7 +486,17 @@ function parseStep(node, file, diags) {
       const branches = { ok: [], fail: [] };
       for (const child of node.children) {
         const [branchName] = words(child.text);
-        if (branchName !== 'ok' && branchName !== 'fail') continue;
+        if (branchName !== 'ok' && branchName !== 'fail') {
+          // The last keyword position in the language that dropped a
+          // near-miss without a word. Every other one — UX010, UX013, UX016,
+          // UX018, UX019 — names what the author meant. The trigger is not
+          // exotic: an over-indented ordinary step lands here too, so a plain
+          // indentation slip used to delete a whole branch and its `go`.
+          diags.push(diag('UX024', file, child.line,
+            `\`${branchName}\` is not a branch of \`call\`.`,
+            keywordFix(branchName, ['ok', 'fail'])));
+          continue;
+        }
         const body = splitArrow(child.text).right;
         if (!body) {
           diags.push(diag('UX019', file, child.line,
@@ -420,7 +515,7 @@ function parseStep(node, file, diags) {
       return { kind: 'Call', name: target.name, args: target.args, ...branches, line: node.line };
     }
     case 'go':
-      return { kind: 'Go', target: parseTarget(rest), line: node.line };
+      return { kind: 'Go', target: navTarget(rest, 'go', file, node.line, diags), line: node.line };
     case 'toast': {
       const str = parseString(rest);
       const undoMatch = /undo\s+(\S+)/.exec(str ? str.rest : rest);

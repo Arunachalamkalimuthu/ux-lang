@@ -64,6 +64,15 @@ function checkElements(elements, file, diags) {
           `This \`form\` has no data name.`,
           `form DataName`));
       }
+      // The same defect UX109 names for an `action`, on the control a form is
+      // actually operated by: a submit button written with no `->` renders and
+      // does nothing when pressed. A form with no `submit` line at all is a
+      // different question and is deliberately not this one.
+      if (element.submit && !element.submit.target) {
+        diags.push(diag('UX114', file, element.line,
+          `This \`form\`'s \`submit\` has no target — it renders but does nothing.`,
+          `submit "Save" -> ScreenName`));
+      }
       checkFormFields(element, file, diags);
     }
     if (element.kind !== 'List') continue;

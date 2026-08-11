@@ -9,8 +9,12 @@ format's design spec, corrected against the current implementation in
 
 - Indentation is significant. Two spaces per level. Tabs are an error.
 - `#` begins a comment to end of line.
-- Strings are double-quoted. No interpolation in v1. A line with an odd
-  number of `"` characters — an unclosed string — is a lexer error (`UX004`),
+- Strings are double-quoted. No interpolation in v1. Inside a string, `\"` is a
+  literal quote and `\\` is a literal backslash — those two are the entire
+  escape vocabulary, and any other `\x` is `UX025` rather than a backslash that
+  quietly disappears. A backslash cannot escape the end of a line, so a line
+  ending in one is an unclosed string. A line with an unescaped-quote count
+  that leaves a string open — an unclosed string — is a lexer error (`UX004`),
   not a silently-swallowed comment or a truncated value: before this was
   checked, `heading "My tasks` (missing the closing quote) parsed to the text
   `"My tasks` verbatim, and an unclosed string ahead of a `#` swallowed the
@@ -19,8 +23,7 @@ format's design spec, corrected against the current implementation in
 - No semicolons, braces, or import statements.
 - One declaration per file is conventional but not enforced. (Note:
   duplicate-name checking across files — `UX205` — applies to `screen`,
-  `flow`, and `component` names. `data` names are not checked for cross-file
-  duplicates.)
+  `flow`, `component` and `data` names alike.)
 
 ## 5. Top-level declarations
 
@@ -211,14 +214,14 @@ Runs on each file independently, before any cross-file linking:
 
 Reads every file and checks what no single file can know:
 
-- **Dead links** — `-> Checkout` with no `screen Checkout`, or a `flow`'s own `go` to a screen that doesn't exist (`UX200`)
+- **Dead links** — `-> Checkout` with no `screen Checkout`, or a `flow`'s own `go` to a screen that doesn't exist (`UX200`). A `component`'s links are checked too, and count as a way out of every screen that `use`s it
 - **Unreachable screens** — defined, nothing arrows in (`UX201`)
 - **Dead ends** — a screen with no way out; `retry` doesn't count (`UX202`)
-- **Argument-count mismatches** — `Detail(task, extra)` where `screen Detail(task)` takes one argument (`UX203`). This checks arity only — it does not check that the argument's *type* matches what the target screen expects.
+- **Argument-count mismatches** — `Detail(task, extra)` where `screen Detail(task)` takes one argument (`UX203`). Checked for both screen and flow targets. This checks arity only — it does not check that the argument's *type* matches what the target expects.
 - **Unknown components** — `use Thing(...)` with no `component Thing` (`UX204`)
-- **Cross-file name collisions** — the same `screen`, `flow`, or `component` name declared in two different files (`UX205`) — the same name declared twice **within one file** is `UX107`, above, not this
+- **Cross-file name collisions** — the same `screen`, `flow`, `component` or `data` name declared in two different files (`UX205`) — the same name declared twice **within one file** is `UX107`, above, not this
 - **Unresolvable field, list, and form types** — a `data` field whose type is neither a primitive nor another declared `data` (`UX105`); a `list` or `form` naming a `data` type that was never declared (`UX106`)
-- **Unresolvable form fields** — a `form`'s field that its resolved `data` type does not declare (`UX206`) — the fix names the real fields, and suggests a specific one when the field looks like a typo of it
+- **Unresolvable form and list fields** — a `form` field, or a `list`'s `row`/`sort by` entry, that its resolved `data` type does not declare (`UX206`) — the fix names the real fields, and suggests a specific one when the field looks like a typo of it. Only bare names are resolved: a dotted path (`row product.name`) and a sort direction (`sort by due desc`) are left alone, and `where` is free text throughout
 - **Missing or ambiguous project root** — no `app`/`site` declared anywhere, or more than one declared across the project (`UX111`)
 
 Half of these are UX defects rather than code defects. A dead-end screen is not a crash; it is a user stuck, and normally nothing catches it until someone gets stuck.
@@ -242,6 +245,7 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX002 | an indent is not a multiple of two spaces |
 | UX003 | a line is indented more than one level deeper than the line above it |
 | UX004 | a line has an unterminated string (an odd number of `"` characters) |
+| UX025 | an unknown escape inside a string (the only escapes are `\"` and `\\`) |
 | UX010 | unknown top-level keyword (must be one of `app`, `site`, `data`, `screen`, `component`, `flow`) |
 | UX011 | a field name is declared twice in one `data` block |
 | UX012 | a field has no type (including a bare `required` with nothing before the type) |
@@ -253,6 +257,10 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX018 | a step inside a `call`'s `ok`/`fail` branch has its own nested branches |
 | UX019 | an `ok`/`fail` branch is missing `->` and a step |
 | UX020 | a `tabs` block has more than one `->` child — only one destination is supported |
+| UX021 | an element that takes no indented body was given one (`heading`, `text`, `show`, `action`, `use`, or a non-`->` child of `tabs`) |
+| UX022 | `app`/`site` was given an indented body — it names the project, it does not contain it |
+| UX023 | a `->` destination that is not a usable name, on a `tap`, `tabs`, `submit` or `go` |
+| UX024 | an unknown branch inside a `call` (must be `ok` or `fail`) |
 | UX100 | a screen has no `intent` |
 | UX101 | a screen has no body content |
 | UX102 | a `list` has no `empty` case |
@@ -265,13 +273,57 @@ Small enough to stay in context permanently. A model edits one screen while reas
 | UX109 | an `action` has no target — it renders but does nothing |
 | UX110 | a `form` has no data name |
 | UX111 | the project declares no `app`/`site` root, or more than one, project-wide (linker) |
+| UX112 | a `list` has no data name |
+| UX113 | two screens declare the same route (linker, project-wide) |
+| UX114 | a `form`'s `submit` has no target — it renders but does nothing |
 | UX200 | a navigation target (`-> Name`, from a screen or from a flow's `go`) does not exist |
 | UX201 | a screen is unreachable — nothing links to it |
 | UX202 | a screen has no way out (a self-loop or `action retry` alone does not count) |
-| UX203 | a navigation target expects a different number of arguments than were passed |
+| UX203 | a navigation target, a flow's `go`, or a `use` passes a different number of arguments than the declaration takes |
 | UX204 | `use` names a component that was never declared |
-| UX205 | the same `screen`, `flow`, or `component` name is declared in two different files |
-| UX206 | a `form` lists a field its resolved `data` type does not declare (linker, project-wide) |
+| UX205 | the same `screen`, `flow`, `component` or `data` name is declared in two different files |
+| UX207 | a screen has links out, but none of them can reach the entry screen — a group of screens the user cannot leave |
+| UX206 | a `form` field, or a `list`'s `row`/`sort by` entry, names a field its resolved `data` type does not declare (linker, project-wide) |
+
+## Suppressing a warning
+
+A trailing `# ux:ignore UX305` suppresses that code on that line; several codes
+may be listed, separated by commas or spaces.
+
+```
+list Task   # ux:ignore UX305
+  row title
+```
+
+Two limits, both deliberate. **Errors cannot be ignored** — a dead end or a
+broken link is what this tool exists to stop, and a checker whose findings can
+be silenced one comment at a time is not making that promise. Trying reports
+`UX026` and the error still stands. And an ignore that **suppresses nothing**
+reports `UX027`, because a suppression that outlives the problem it was for is
+how the next reader learns to distrust every comment in the file.
+
+## Exit codes and machine-readable output
+
+`ux check` and `ux lint` exit **0** when the project is clean and **1** when it
+is not — errors, or any warning under `--strict`. `ux fmt --check` exits 1 when
+a file would be rewritten. **2** is a different failure entirely: the
+invocation or the setup is wrong (an unknown flag, a directory that isn't
+there, a file that cannot be read, a `.build` that cannot be written). CI
+should treat 1 as "fix the app" and 2 as "fix the setup"; a script that lumps
+them together reports a missing directory as a broken project.
+
+`--format json` makes `check`, `lint` and `map` emit a report instead of prose:
+
+```json
+{ "ok": false, "command": "check", "dir": "ux", "errors": 2, "warnings": 0,
+  "diagnostics": [ { "code": "UX207", "severity": "error", "file": "ux/app.ux",
+                     "line": 9, "message": "…", "fix": "…" } ] }
+```
+
+`ux map --format json` returns `entry`, `screens` and `edges` instead of
+`diagnostics`. The `.build/app.map` file is always the text rendering, whatever
+`--format` says: it is a record both a generator and a human read, and a file
+whose contents depend on a flag from one run is not one you can rely on.
 
 ## Warnings (`ux lint`)
 
@@ -290,4 +342,6 @@ you don't have to remember a second command.
 | UX302 | a `component` in its own file that only one screen uses |
 | UX303 | an `intent` that restates the screen's name, is a placeholder, or duplicates another screen's |
 | UX304 | a name that breaks the casing convention — `PascalCase` declarations, `camelCase` fields and flows |
+| UX026 | `ux:ignore` named an error code, which cannot be suppressed (warning) |
+| UX027 | a `ux:ignore` that suppressed nothing on its line (warning) |
 | UX305 | a `list` with no `tap` and no action in any of its states, so nothing in it can be acted on |

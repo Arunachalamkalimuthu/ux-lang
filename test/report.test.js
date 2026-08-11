@@ -5,6 +5,7 @@ import { renderDiagnostics } from '../src/report.js';
 import { parse } from '../src/parser.js';
 import { check } from '../src/check.js';
 import { link } from '../src/linker.js';
+import { lint } from '../src/lint.js';
 
 test('every diagnostic prints location, code, message, and fix', () => {
   const out = renderDiagnostics([
@@ -53,7 +54,12 @@ test('no diagnostic fix string starts with a renderer-supplied boilerplate prefi
   const { ast, diags: parseDiags } = parse(BROKEN, 'broken.ux');
   const checkDiags = check(ast);
   const { diags: linkDiags } = link([ast]);
-  const diags = [...parseDiags, ...checkDiags, ...linkDiags];
+  // `lint` belongs in this pipeline too. Leaving it out is exactly why this
+  // guard did not catch UX305 shipping with a doubled `add:` prefix — the
+  // fixture reaches UX300 and UX305, so the rule was in range the whole time
+  // and only the pipeline was short.
+  const lintDiags = lint([ast]);
+  const diags = [...parseDiags, ...checkDiags, ...linkDiags, ...lintDiags];
 
   // Guard the guard: if the fixture stops producing diagnostics, this test
   // would pass vacuously and stop catching anything. The fixture also must

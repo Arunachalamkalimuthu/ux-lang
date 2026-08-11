@@ -7,6 +7,7 @@ import { link } from '../src/linker.js';
 import { renderMap } from '../src/map.js';
 import { renderDiagnostics } from '../src/report.js';
 import { lint } from '../src/lint.js';
+import { applyIgnores } from '../src/ignore.js';
 import { hasErrors, ERROR } from '../src/diagnostics.js';
 
 // Ordering is a CLI presentation concern, not part of what a diagnostic
@@ -48,20 +49,76 @@ const USAGE = `ux — check, lint, format and map .ux projects
 
   --strict         make warnings fail (exit 1); for CI
   --check          with fmt: report what would change, write nothing
+  --format <fmt>   text (default) or json
+
+exit codes
+  0  the project is fine
+  1  the project is not — errors, --strict warnings, or files fmt would rewrite
+  2  the invocation or the setup is — a bad flag, a missing directory, an
+     unreadable file
 `;
+
+// Two different failures, and CI wants them apart: exit 1 means fix your app,
+// exit 2 means fix your setup. Everything used to be 1, so a missing directory
+// and a dead-end screen were indistinguishable to anything reading the code.
+const OK = 0;
+const FAILED = 1;
+const USAGE_ERROR = 2;
+
+function usageError(message, fix) {
+  process.stdout.write(`${message}\n${fix ? `  fix:  ${fix}\n` : ''}`);
+  process.exit(USAGE_ERROR);
+}
 
 // Flags are pulled out first so they can appear anywhere — `ux check --strict
 // ux/` and `ux check ux/ --strict` are the same command, and a flag can never
 // be mistaken for the directory.
+//
+// Both halves are then checked rather than trimmed to the two the parse
+// happens to want. Dropping the rest is the wrong way for a CLI to fail:
+// `ux fmt --list-different` — Prettier's spelling of `--check` — rewrote every
+// file in place and exited 0, `ux check --strict=true` turned the CI gate off
+// without saying so, and `ux check a b` checked `a` and never mentioned `b`.
+const KNOWN_FLAGS = new Set(['--strict', '--check', '--help']);
+const FORMATS = new Set(['text', 'json']);
 const argv = process.argv.slice(2);
-const strict = argv.includes('--strict');
-const checkOnly = argv.includes('--check');
-const [command, dirArg] = argv.filter(a => !a.startsWith('--') || a === '--help');
+
+const flags = new Set();
+const positional = [];
+let format = 'text';
+
+for (let i = 0; i < argv.length; i++) {
+  const arg = argv[i];
+  if (!arg.startsWith('-')) { positional.push(arg); continue; }
+
+  // `--format json` and `--format=json` both, because a user who has been
+  // rejected once for `--strict=true` will reasonably try the other spelling.
+  const [name, inline] = arg.startsWith('--format=') ? ['--format', arg.slice(9)] : [arg, null];
+  if (name === '--format') {
+    const value = inline ?? argv[++i];
+    if (value === undefined) usageError('`--format` needs a value.', 'ux check --format json');
+    if (!FORMATS.has(value)) {
+      usageError(`\`${value}\` is not an output format.`, `use one of: ${[...FORMATS].join(', ')}`);
+    }
+    format = value;
+    continue;
+  }
+
+  if (!KNOWN_FLAGS.has(arg)) {
+    usageError(`Unknown flag \`${arg}\`.`, 'the flags are --strict, --check and --format');
+  }
+  flags.add(arg);
+}
+
+const strict = flags.has('--strict');
+const checkOnly = flags.has('--check');
+const json = format === 'json';
+const [command, dirArg, ...extra] = positional;
 const dir = dirArg ?? 'ux';
 
-if (!command || command === 'help' || command === '--help') {
+if (!command || command === 'help' || flags.has('--help')) {
   process.stdout.write(USAGE);
-  process.exit(0);
+  process.exit(OK);
 }
 
 // Validate the command before touching the filesystem — otherwise a typo'd
@@ -69,9 +126,23 @@ if (!command || command === 'help' || command === '--help') {
 // state: no `ux/` directory yet) gets misreported as a missing-directory
 // error instead of naming the actual mistake.
 if (!['check', 'lint', 'fmt', 'map'].includes(command)) {
-  process.stdout.write(`Unknown command \`${command}\`.\n  fix:  ux check\n`);
-  process.exit(1);
+  usageError(`Unknown command \`${command}\`.`, 'ux check');
 }
+
+if (extra.length > 0) {
+  usageError(`Unexpected argument \`${extra[0]}\` — \`ux ${command}\` takes one directory.`, `ux ${command} ${dir}`);
+}
+
+// One shape for every machine-readable report, so a consumer can tell what it
+// is holding without knowing which command produced it.
+function emitJson(payload) {
+  process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+}
+
+const asJson = d => ({
+  code: d.code, severity: d.severity, file: d.file, line: d.line,
+  message: d.message, fix: d.fix,
+});
 
 // `fmt` runs before anything parses. Formatting is pure text work, and a file
 // that does not parse is exactly when you most want it tidied — requiring a
@@ -81,41 +152,66 @@ if (command === 'fmt') {
   try {
     files = await findUxFiles(dir);
   } catch (error) {
-    process.stdout.write(`Could not read \`${dir}\`: ${error.message}\n  fix:  create a ${dir}/ directory with .ux files\n`);
-    process.exit(1);
+    usageError(`Could not read \`${dir}\`: ${error.message}`, `create a ${dir}/ directory with .ux files`);
   }
 
   if (files.length === 0) {
-    process.stdout.write(`\`${dir}\` has no .ux files.\n  fix:  write at least one .ux file in ${dir}/\n`);
-    process.exit(1);
+    usageError(`\`${dir}\` has no .ux files.`, `write at least one .ux file in ${dir}/`);
   }
 
+  // A file this pass cannot handle is reported and skipped, not thrown. An
+  // uncaught read error used to abort the loop part-way: files earlier in the
+  // sorted walk had already been rewritten, files after it had not, and the
+  // run said nothing about either.
   const changed = [];
+  const skipped = [];
   for (const path of files) {
-    const source = await readFile(path, 'utf8');
+    let bytes;
+    try {
+      bytes = await readFile(path);
+    } catch (error) {
+      skipped.push({ path, reason: error.message });
+      continue;
+    }
+
+    // `readFile(…, 'utf8')` turns every byte it cannot decode into U+FFFD, so
+    // writing the decoded text back would make a lossy read permanent. A
+    // formatter may not destroy what it could not read in the first place.
+    const source = bytes.toString('utf8');
+    if (!Buffer.from(source, 'utf8').equals(bytes)) {
+      skipped.push({ path, reason: 'not valid UTF-8 — formatting it would replace the bytes that could not be decoded' });
+      continue;
+    }
+
     const formatted = formatSource(source);
     if (formatted === source) continue;
     changed.push(path);
     if (!checkOnly) await writeFile(path, formatted);
   }
 
+  if (skipped.length > 0) {
+    const lines = skipped.map(s => `  ${s.path}: ${s.reason}`).join('\n');
+    process.stdout.write(`Could not format ${skipped.length} file(s):\n${lines}\n  fix:  make each one readable and valid UTF-8, then re-run\n\n`);
+  }
+
   if (changed.length === 0) {
-    process.stdout.write(`${files.length} file(s) already formatted.\n`);
-    process.exit(0);
+    process.stdout.write(`${files.length - skipped.length} file(s) already formatted.\n`);
+    // A file that could not be read is a setup problem, not a project one.
+    process.exit(skipped.length > 0 ? USAGE_ERROR : OK);
   }
 
   const verb = checkOnly ? 'would be reformatted' : 'reformatted';
   process.stdout.write(`${changed.map(p => `  ${p}`).join('\n')}\n\n${changed.length} file(s) ${verb}.\n`);
+  if (skipped.length > 0) process.exit(USAGE_ERROR);
   // --check is for CI: report and fail, write nothing.
-  process.exit(checkOnly ? 1 : 0);
+  process.exit(checkOnly ? FAILED : OK);
 }
 
 let programs, diags;
 try {
   ({ programs, diags } = await loadProject(dir));
 } catch (error) {
-  process.stdout.write(`Could not read \`${dir}\`: ${error.message}\n  fix:  create a ${dir}/ directory with .ux files\n`);
-  process.exit(1);
+  usageError(`Could not read \`${dir}\`: ${error.message}`, `create a ${dir}/ directory with .ux files`);
 }
 
 // A directory that exists but holds zero `.ux` files loads without error —
@@ -126,13 +222,17 @@ try {
 // from the caller's side it is the same mistake: there is nothing here to
 // check yet.
 if ((command === 'check' || command === 'lint') && programs.length === 0) {
-  process.stdout.write(`\`${dir}\` has no .ux files.\n  fix:  write at least one .ux file in ${dir}/\n`);
-  process.exit(1);
+  usageError(`\`${dir}\` has no .ux files.`, `write at least one .ux file in ${dir}/`);
 }
 
 const linked = link(programs);
-const errors = sortDiagnostics([...diags, ...linked.diags]);
-const warnings = sortDiagnostics(lint(programs));
+
+// One pass over everything, so a `# ux:ignore` that suppresses nothing is
+// reported once rather than once per severity — and so the unused-ignore check
+// can see a warning suppressed on the same line as an error it cannot touch.
+const reported = applyIgnores([...diags, ...linked.diags, ...lint(programs)], programs);
+const errors = sortDiagnostics(reported.filter(d => d.severity === ERROR));
+const warnings = sortDiagnostics(reported.filter(d => d.severity !== ERROR));
 
 // Warnings fail the build only when asked. A lint rule that cannot be ignored
 // is an error wearing the wrong label, and every rule here has a legitimate
@@ -140,8 +240,16 @@ const warnings = sortDiagnostics(lint(programs));
 const failed = list => hasErrors(list) || (strict && list.length > 0);
 
 if (command === 'lint') {
-  process.stdout.write(renderDiagnostics(warnings) + '\n');
-  process.exit(failed(warnings) ? 1 : 0);
+  if (json) {
+    emitJson({
+      ok: !failed(warnings), command, dir,
+      errors: 0, warnings: warnings.length,
+      diagnostics: warnings.map(asJson),
+    });
+  } else {
+    process.stdout.write(renderDiagnostics(warnings) + '\n');
+  }
+  process.exit(failed(warnings) ? FAILED : OK);
 }
 
 if (command === 'check') {
@@ -149,12 +257,22 @@ if (command === 'check') {
   // nobody remembers to run — but they sort after every error, because an
   // error is what stops you shipping.
   const all = [...errors, ...warnings];
+  if (json) {
+    emitJson({
+      ok: !failed(all), command, dir,
+      errors: all.filter(d => d.severity === ERROR).length,
+      warnings: all.filter(d => d.severity !== ERROR).length,
+      diagnostics: all.map(asJson),
+    });
+    process.exit(failed(all) ? FAILED : OK);
+  }
+
   const lexicalCount = all.filter(d => LEXICAL_CODES.has(d.code)).length;
   const banner = lexicalCount > 0
     ? `${lexicalCount} lexical error(s). Fix these first and re-run — anything below may be derived from a broken line.\n\n`
     : '';
   process.stdout.write(banner + renderDiagnostics(all) + '\n');
-  process.exit(failed(all) ? 1 : 0);
+  process.exit(failed(all) ? FAILED : OK);
 }
 
 const all = errors;
@@ -167,7 +285,31 @@ const errorCount = all.filter(d => d.severity === ERROR).length;
 const output = errorCount > 0
   ? `${map}\n${errorCount} error(s) — run \`ux check\` for details\n`
   : `${map}\n`;
-process.stdout.write(output);
-await mkdir(join(dir, '.build'), { recursive: true });
-await writeFile(join(dir, '.build', 'app.map'), output);
-process.exit(0);
+
+// The `.build/app.map` artifact stays the text rendering whatever `--format`
+// says: it is the file a generator and a human both read, and changing what it
+// contains based on a flag on one run would make it unreliable as a record.
+if (json) {
+  emitJson({
+    ok: errorCount === 0, command, dir,
+    entry: linked.entry,
+    screens: [...linked.screens.keys()],
+    edges: linked.edges.map(e => ({ from: e.from, to: e.to, via: e.via })),
+    errors: errorCount,
+  });
+} else {
+  process.stdout.write(output);
+}
+
+// The map is already on stdout, so a failure to save it costs the reader
+// nothing they were looking at — but it is still a failure, and every other
+// I/O path here reports one rather than letting a Node stack trace out.
+try {
+  await mkdir(join(dir, '.build'), { recursive: true });
+  await writeFile(join(dir, '.build', 'app.map'), output);
+} catch (error) {
+  usageError(`Could not write \`${join(dir, '.build', 'app.map')}\`: ${error.message}`,
+    `make ${join(dir, '.build')} a writable directory, or remove what is in its place`);
+}
+
+process.exit(OK);

@@ -456,3 +456,230 @@ test('regression: UX205 does not fire for a single file declaring one screen, on
 
   assert.ok(!diags.some(d => d.code === 'UX205'));
 });
+
+// ---- audit regressions -----------------------------------------------------
+
+const APP = 'app Demo\n';
+const graphOf = files => linkSources(...files);
+const diagsOf = files => graphOf(files).diags;
+
+test('a dangling link inside a component is reported', () => {
+  const files = [
+    APP + 'component Nav\n  action "Broken" -> Nowhere\n',
+    'screen Home\n  at /\n  intent "Land"\n  use Nav\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Other"\n  action "Back" -> Home\n',
+  ];
+  const diags = diagsOf(files);
+  assert.equal(diags.filter(d => d.code === 'UX200').length, 1);
+  assert.match(diags.find(d => d.code === 'UX200').message, /Nowhere/);
+});
+
+test('a screen whose only way out is inside a used component is not a dead end', () => {
+  const files = [
+    APP + 'component Nav\n  action "Home" -> Home\n  action "Settings" -> Settings\n',
+    'screen Home\n  at /\n  intent "Land"\n  use Nav\n  text "hi"\n',
+    'screen Settings\n  intent "Settings"\n  use Nav\n  text "s"\n',
+  ];
+  assert.deepEqual(diagsOf(files), []);
+});
+
+test('component navigation appears in the flow graph', () => {
+  const files = [
+    APP + 'component Nav\n  action "Settings" -> Settings\n',
+    'screen Home\n  at /\n  intent "Land"\n  use Nav\n  text "hi"\n',
+    'screen Settings\n  intent "Settings"\n  action "Back" -> Home\n',
+  ];
+  const linked = graphOf(files);
+  assert.ok(linked.edges.some(e => e.from === 'Home' && e.to === 'Settings'),
+    'the Home -> Settings edge the component supplies is missing from the graph');
+});
+
+test('a component that uses another component inherits its navigation without looping', () => {
+  const files = [
+    APP + 'component Inner\n  action "Settings" -> Settings\n',
+    'component Outer\n  use Inner\n  use Outer\n',
+    'screen Home\n  at /\n  intent "Land"\n  use Outer\n  text "hi"\n',
+    'screen Settings\n  intent "Settings"\n  action "Back" -> Home\n',
+  ];
+  const linked = graphOf(files);
+  assert.ok(linked.edges.some(e => e.from === 'Home' && e.to === 'Settings'));
+});
+
+test('a list row naming a field its data type does not declare is reported', () => {
+  const files = [
+    APP + 'data Task\n  title text required\n',
+    'screen Home\n  at /\n  intent "Land"\n  list Task\n    row titel\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Other"\n  action "Back" -> Home\n',
+  ];
+  const diags = diagsOf(files);
+  const found = diags.filter(d => d.code === 'UX206');
+  assert.equal(found.length, 1);
+  assert.match(found[0].fix, /title/);
+});
+
+test('a list sort key naming an unknown field is reported, and a direction is not a field', () => {
+  const base = APP + 'data Task\n  title text required\n  due date\n';
+  const screens = key => [
+    base,
+    `screen Home\n  at /\n  intent "Land"\n  list Task\n    sort by ${key}\n  action "Go" -> Other\n`,
+    'screen Other\n  intent "Other"\n  action "Back" -> Home\n',
+  ];
+  assert.equal(diagsOf(screens('nope')).filter(d => d.code === 'UX206').length, 1);
+  assert.deepEqual(diagsOf(screens('due desc')).filter(d => d.code === 'UX206'), []);
+});
+
+test('a dotted row path is left alone', () => {
+  const files = [
+    APP + 'data Task\n  title text required\n',
+    'screen Home\n  at /\n  intent "Land"\n  list Task\n    row task.owner.name\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Other"\n  action "Back" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX206'), []);
+});
+
+test('a list with no data name is reported the way a form with no data name is', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land"\n  list\n    row title\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Other"\n  action "Back" -> Home\n',
+  ];
+  assert.equal(diagsOf(files).filter(d => d.code === 'UX112').length, 1);
+});
+
+test('argument arity is checked when a target resolves to a flow', () => {
+  const files = [
+    APP + 'flow archive(task)\n  go Other\n',
+    'screen Home\n  at /\n  intent "Land"\n  action "Archive" -> archive\n',
+    'screen Other\n  intent "Other"\n  action "Back" -> Home\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX203');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /expects 1 argument/);
+});
+
+test('a data name declared in two files is reported as a cross-file duplicate', () => {
+  const files = [
+    APP + 'data Task\n  title text required\n',
+    'data Task\n  name text required\n',
+    'screen Home\n  at /\n  intent "Land"\n  list Task\n    row title\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Other"\n  action "Back" -> Home\n',
+  ];
+  assert.equal(diagsOf(files).filter(d => d.code === 'UX205').length, 1);
+});
+
+test('two screens claiming the same route are reported', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  at /\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX113');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /\//);
+});
+
+test('screens with distinct routes, or none, are not reported', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  at /other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX113'), []);
+});
+
+test('a `use` that passes the wrong number of arguments is reported', () => {
+  const files = [
+    APP + 'component Card(x)\n  text "card"\n',
+    'screen Home\n  at /\n  intent "Land here"\n  use Card(a, b, c)\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX203');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /expects 1 argument/);
+});
+
+test('a `use` with matching arity is not reported', () => {
+  const files = [
+    APP + 'component Card(x)\n  text "card"\n',
+    'screen Home\n  at /\n  intent "Land here"\n  use Card(task)\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX203'), []);
+});
+
+test("a flow's `go` is arity-checked against the screen it lands on", () => {
+  const files = [
+    APP + 'flow open\n  go Detail(a, b, c)\n',
+    'screen Home\n  at /\n  intent "Land here"\n  action "Open" -> open\n',
+    'screen Detail(task)\n  intent "Read one thing"\n  action "Back" -> Home\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX203');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /expects 1 argument/);
+});
+
+test("a shadowed duplicate declaration's own link errors are still reported", () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+    'screen Home\n  intent "A second Home"\n  action "Broken" -> NoSuchScreen\n  list Undeclared\n    row x\n    empty "e"\n    loading skeleton 1 rows\n    error "x"\n',
+  ];
+  const diags = diagsOf(files);
+  assert.equal(diags.filter(d => d.code === 'UX205').length, 1, 'the duplicate itself is still reported');
+  assert.equal(diags.filter(d => d.code === 'UX200').length, 1, 'the shadowed copy\'s dangling link is reported');
+  assert.equal(diags.filter(d => d.code === 'UX106').length, 1, 'the shadowed copy\'s undeclared data type is reported');
+});
+
+test("a shadowed duplicate data declaration's own field errors are still reported", () => {
+  const files = [
+    APP + 'data Task\n  title text required\n',
+    'data Task\n  title NotAType required\n',
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  const diags = diagsOf(files);
+  assert.equal(diags.filter(d => d.code === 'UX205').length, 1);
+  assert.equal(diags.filter(d => d.code === 'UX105').length, 1, "the shadowed copy's unknown field type is reported");
+});
+
+test('a group of screens that cannot get back to the entry is reported', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Begin" -> Step1\n',
+    'screen Step1\n  intent "Collect the address"\n  action "Next" -> Step2\n',
+    'screen Step2\n  intent "Collect the payment"\n  action "Back" -> Step1\n',
+  ];
+  const found = diagsOf(files).filter(d => d.code === 'UX207');
+  assert.deepEqual(found.map(d => d.message.match(/`(\w+)`/)[1]).sort(), ['Step1', 'Step2']);
+});
+
+test('a healthy app reports no trap', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Begin" -> Step1\n',
+    'screen Step1\n  intent "Collect the address"\n  action "Next" -> Step2\n',
+    'screen Step2\n  intent "Collect the payment"\n  action "Done" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX207'), []);
+});
+
+test('a screen with no way out is UX202 only, not UX202 and UX207 both', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Stuck\n',
+    'screen Stuck\n  intent "A place with no exit"\n  text "stuck"\n',
+  ];
+  const diags = diagsOf(files);
+  assert.equal(diags.filter(d => d.code === 'UX202').length, 1);
+  assert.deepEqual(diags.filter(d => d.code === 'UX207'), []);
+});
+
+test('the entry screen itself is never a trap', () => {
+  const files = [
+    APP,
+    'screen Home\n  at /\n  intent "Land here"\n  action "Go" -> Other\n',
+    'screen Other\n  intent "Somewhere else"\n  action "Back" -> Home\n',
+  ];
+  assert.deepEqual(diagsOf(files).filter(d => d.code === 'UX207'), []);
+});

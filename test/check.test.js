@@ -185,3 +185,14 @@ test('a form nested inside a group still gets its fields checked for UX108', () 
   ].join('\n');
   assert.ok(codes(src).includes('UX108'));
 });
+
+test('a form submit with no target is reported the way a targetless action is', () => {
+  const source = 'screen Home\n  intent "Land"\n  form Task\n    title\n    submit "Save"\n';
+  const diags = check(parse(source, 'a.ux').ast);
+  assert.equal(diags.filter(d => d.code === 'UX114').length, 1);
+});
+
+test('a form submit with a target is not reported', () => {
+  const source = 'screen Home\n  intent "Land"\n  form Task\n    title\n    submit "Save" -> Done\n';
+  assert.deepEqual(check(parse(source, 'a.ux').ast).filter(d => d.code === 'UX114'), []);
+});

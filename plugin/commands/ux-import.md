@@ -26,8 +26,8 @@ order below is from that file and exists for reasons explained there.
    not recoverable from the code. If a screen resists description, say so to the
    user rather than inventing one.
 
-6. **Run `ux check ux/`.** If the shell reports `command not found`, fall back
-   to `node <path-to-ux-lang-repo>/bin/ux check ux/`.
+6. **Run `ux check ux/`.** If the shell reports `command not found`, use
+   `npx uxlang check ux/`, or `node "${CLAUDE_PLUGIN_ROOT}/../bin/ux" check ux/`.
 
    Do not try to reach a clean run by editing the `.ux`. Present the
    diagnostics to the user in two groups:
@@ -40,7 +40,7 @@ order below is from that file and exists for reasons explained there.
    State plainly which group each diagnostic is in and why.
 
 7. **Verify fidelity, which `ux check` cannot.** Run
-   `node <path-to-ux-lang-repo>/bench/inspect.mjs ux/` and read the output
+   `node "${CLAUDE_PLUGIN_ROOT}/../bench/inspect.mjs" ux/` and read the output
    against the real app: do form field names match the real fields, does every
    screen exist, do the arrows go where the app goes? A clean `ux check` proves
    the file is well-formed, not that it is true. Report any mismatch.
